@@ -12,3 +12,11 @@ body { margin: 0; font-family: system-ui, sans-serif; }
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 1000;
   background: #14171c; color: #fff; padding: 10px 16px; border-radius: 8px; font: 14px system-ui, sans-serif;
 }
+.pc-save-image {
+  position: fixed; right: 20px; bottom: 20px; z-index: 1000;
+  padding: 8px 14px; border: 1px solid #d0d4da; border-radius: 8px; cursor: pointer;
+  background: #fff; color: #14171c; font: 600 13px system-ui, sans-serif;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 12%); opacity: .85;
+}
+.pc-save-image:hover { opacity: 1; }
+.pc-save-image:disabled { cursor: progress; }

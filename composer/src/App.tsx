@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Puck, Render } from "@puckeditor/core";
 import { listPages, loadPage, savePage, slugify, type PageSummary } from "@apc/page-server/client";
 import { config, type PageData } from "./config";
 import { demoPage } from "./demo";
+import { SaveImageButton } from "./save-image";
 
 // Three routes, no router dependency:
 //   /             page list
@@ -62,9 +63,18 @@ function Editor({ slug }: { slug: string }) {
 
 function Viewer({ slug }: { slug: string }) {
   const data = usePage(slug);
+  const pageRef = useRef<HTMLDivElement>(null);
   if (data === undefined) return null;
   if (data === null) return <p className="pc-pad">Page “{slug}” not found.</p>;
-  return <Render config={config} data={data} />;
+  return (
+    <>
+      {/* The wrapper is what gets exported: the whole page, however long. */}
+      <div ref={pageRef}>
+        <Render config={config} data={data} />
+      </div>
+      <SaveImageButton target={pageRef} fileName={`${slug}.png`} />
+    </>
+  );
 }
 
 function Home() {

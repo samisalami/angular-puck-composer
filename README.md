@@ -56,7 +56,8 @@ pnpm storybook        # Storybook for Angular           → http://localhost:600
 ```
 
 In the composer, click **Seed demo page**, then **edit** (Puck editor) or **view** (the link for
-management).
+management). The view has a **Save image** button that exports the whole page as a PNG, including
+everything below the fold.
 
 | Script | Does |
 |---|---|
@@ -83,6 +84,7 @@ management).
 | `puck:verify` detects breaking changes (renamed input, removed option) against the committed manifest; `--allow-breaking` downgrades them to warnings | ✓ |
 | In the editor: changing a field updates the Angular component; blocks can be dropped into the Card's `<ng-content>`; Angular `output()` reaches React (share-view toast) | ✓ |
 | Storybook for Angular renders all components and the `Pages/Dashboard` story | ✓ |
+| **Save image** in the share view exports the full page (856 px page in a 600 px window → 2880×1712 PNG at 2×); an 8,600 px dark-theme page exports at a reduced ratio (2679×16000) instead of failing; the button itself is not in the image | ✓ |
 | Docker images build, become healthy, and pass the same browser checks | ✓ |
 
 **Not tested:** a real multi-node `docker stack deploy` (`stack.yml` is only validated with
@@ -391,7 +393,7 @@ packages:
   - server
 ```
 
-Dependencies (`composer/package.json`): `react@^19`, `react-dom@^19`, `@puckeditor/core@^0.23`,
+Dependencies (`composer/package.json`): `react@^19`, `react-dom@^19`, `@puckeditor/core@^0.23`, `html-to-image@^1.11`,
 `vite@^7`, `@vitejs/plugin-react@^5`, `typescript`, `@types/react`, `@types/react-dom`, `@types/node`,
 and `@apc/page-server` (workspace).
 
@@ -402,6 +404,7 @@ and `@apc/page-server` (workspace).
 | `src/overrides.tsx` | Exceptions for generated blocks (e.g. Button's output → toast) | when a block needs custom behaviour |
 | `src/elements.ts` | Loads the bundle, waits for `apc-elements-ready`; `useCustomEvent()` | no |
 | `src/App.tsx` | Routes `/`, `/edit/:slug`, `/view/:slug`; Puck with `iframe: { enabled: false }` | rarely |
+| `src/save-image.tsx` | **Save image** button in the share view (full-page PNG via `html-to-image`) | no |
 | `vite.config.ts` | Serves `../dist/elements/browser` at `/elements/*`; copies it into `dist/` on build | only if paths differ |
 | `src/demo.ts` | Example page for "Seed demo page" | optional |
 
@@ -788,4 +791,7 @@ docker stack deploy -c stack.yml --with-registry-auth apc
   MIT, so you could fork it.
 - **Editor and components share one document** (no iframe), so CSS hygiene matters (5.5).
 - **The page server has no authentication, versioning or concurrent-edit protection**; last save wins.
+- **Save image** rasterizes the DOM in the browser (`html-to-image`). Images from other origins only
+  appear if they're served with CORS headers. Pages taller than ~8,000 px are exported at a lower pixel
+  ratio, since browsers cap canvas size at ~16k px per side (`MAX_SIDE` in `composer/src/save-image.tsx`).
 - Tested with Angular 22, Storybook 10.6, Puck 0.23, React 19, Chromium only.

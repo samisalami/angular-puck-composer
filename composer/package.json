@@ -12,6 +12,7 @@
   "dependencies": {
     "@apc/page-server": "workspace:*",
     "@puckeditor/core": "^0.23.0",
+    "html-to-image": "^1.11.13",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
