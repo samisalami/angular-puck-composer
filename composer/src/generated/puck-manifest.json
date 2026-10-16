@@ -1,0 +1,356 @@
+{
+  "version": 1,
+  "blocks": {
+    "Alert": {
+      "tag": "apc-alert",
+      "label": "Alert",
+      "component": "Alert",
+      "selector": "ui-alert",
+      "category": "Data & feedback",
+      "slot": null,
+      "outputs": [],
+      "props": {
+        "message": {
+          "kind": "string",
+          "default": "Billing migration is scheduled for next Tuesday."
+        },
+        "title": {
+          "kind": "string",
+          "default": "Heads up"
+        },
+        "tone": {
+          "kind": "enum",
+          "options": [
+            "info",
+            "success",
+            "warning",
+            "danger"
+          ],
+          "default": "info"
+        }
+      },
+      "excluded": []
+    },
+    "Avatar": {
+      "tag": "apc-avatar",
+      "label": "Avatar",
+      "component": "Avatar",
+      "selector": "ui-avatar",
+      "category": "Content",
+      "slot": null,
+      "outputs": [],
+      "props": {
+        "name": {
+          "kind": "string",
+          "default": "Ada Lovelace"
+        },
+        "size": {
+          "kind": "number",
+          "default": 40
+        }
+      },
+      "excluded": []
+    },
+    "Badge": {
+      "tag": "apc-badge",
+      "label": "Badge",
+      "component": "Badge",
+      "selector": "ui-badge",
+      "category": "Content",
+      "slot": null,
+      "outputs": [],
+      "props": {
+        "label": {
+          "kind": "string",
+          "default": "Beta"
+        },
+        "tone": {
+          "kind": "enum",
+          "options": [
+            "neutral",
+            "success",
+            "warning",
+            "danger",
+            "info"
+          ],
+          "default": "info"
+        }
+      },
+      "excluded": []
+    },
+    "Button": {
+      "tag": "apc-button",
+      "label": "Button",
+      "component": "Button",
+      "selector": "ui-button",
+      "category": "Content",
+      "slot": null,
+      "outputs": [
+        "pressed"
+      ],
+      "props": {
+        "label": {
+          "kind": "string",
+          "default": "Get started"
+        },
+        "size": {
+          "kind": "enum",
+          "options": [
+            "sm",
+            "md",
+            "lg"
+          ],
+          "default": "md"
+        },
+        "variant": {
+          "kind": "enum",
+          "options": [
+            "primary",
+            "secondary",
+            "ghost"
+          ],
+          "default": "primary"
+        }
+      },
+      "excluded": []
+    },
+    "Card": {
+      "tag": "apc-card",
+      "label": "Card",
+      "component": "Card",
+      "selector": "ui-card",
+      "category": "Content",
+      "slot": "content",
+      "outputs": [],
+      "props": {
+        "badge": {
+          "kind": "string",
+          "default": "Q3"
+        },
+        "badgeTone": {
+          "kind": "enum",
+          "options": [
+            "neutral",
+            "success",
+            "warning",
+            "danger",
+            "info"
+          ],
+          "default": "info"
+        },
+        "body": {
+          "kind": "string",
+          "default": "Cut time-to-value from 14 days to 3 by guiding new accounts through setup."
+        },
+        "footer": {
+          "kind": "string",
+          "default": "Owner: Growth team"
+        },
+        "title": {
+          "kind": "string",
+          "default": "Self-service onboarding"
+        }
+      },
+      "excluded": []
+    },
+    "Heading": {
+      "tag": "apc-heading",
+      "label": "Heading",
+      "component": "Heading",
+      "selector": "ui-heading",
+      "category": "Content",
+      "slot": null,
+      "outputs": [],
+      "props": {
+        "align": {
+          "kind": "enum",
+          "options": [
+            "left",
+            "center",
+            "right"
+          ],
+          "default": "left"
+        },
+        "level": {
+          "kind": "enum",
+          "options": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "default": 2
+        },
+        "text": {
+          "kind": "string",
+          "default": "Quarterly roadmap"
+        }
+      },
+      "excluded": []
+    },
+    "Hero": {
+      "tag": "apc-hero",
+      "label": "Hero",
+      "component": "Hero",
+      "selector": "ui-hero",
+      "category": "Marketing",
+      "slot": null,
+      "outputs": [
+        "ctaClick"
+      ],
+      "props": {
+        "eyebrow": {
+          "kind": "string",
+          "default": "New in 2027"
+        },
+        "primaryCta": {
+          "kind": "string",
+          "default": "Request demo"
+        },
+        "secondaryCta": {
+          "kind": "string",
+          "default": "Read the docs"
+        },
+        "subtitle": {
+          "kind": "string",
+          "default": "Compose real, production components into pages without a design tool."
+        },
+        "title": {
+          "kind": "string",
+          "default": "Ship designs your managers can click"
+        }
+      },
+      "excluded": []
+    },
+    "Navbar": {
+      "tag": "apc-navbar",
+      "label": "Navbar",
+      "component": "Navbar",
+      "selector": "ui-navbar",
+      "category": "Marketing",
+      "slot": null,
+      "outputs": [],
+      "props": {
+        "brand": {
+          "kind": "string",
+          "default": "Acme"
+        },
+        "ctaLabel": {
+          "kind": "string",
+          "default": "Sign in"
+        },
+        "links": {
+          "kind": "string",
+          "default": "Product, Pricing, Customers, Docs"
+        }
+      },
+      "excluded": []
+    },
+    "ProgressBar": {
+      "tag": "apc-progress-bar",
+      "label": "ProgressBar",
+      "component": "ProgressBar",
+      "selector": "ui-progress-bar",
+      "category": "Data & feedback",
+      "slot": null,
+      "outputs": [],
+      "props": {
+        "label": {
+          "kind": "string",
+          "default": "Migration"
+        },
+        "value": {
+          "kind": "number",
+          "default": 64
+        }
+      },
+      "excluded": []
+    },
+    "Quote": {
+      "tag": "apc-quote",
+      "label": "Quote",
+      "component": "Quote",
+      "selector": "ui-quote",
+      "category": "Content",
+      "slot": null,
+      "outputs": [],
+      "props": {
+        "author": {
+          "kind": "string",
+          "default": "Ada Lovelace"
+        },
+        "role": {
+          "kind": "string",
+          "default": "Head of Growth"
+        },
+        "text": {
+          "kind": "string",
+          "default": "We cut onboarding from two weeks to three days."
+        }
+      },
+      "excluded": []
+    },
+    "StatCard": {
+      "tag": "apc-stat-card",
+      "label": "StatCard",
+      "component": "StatCard",
+      "selector": "ui-stat-card",
+      "category": "Data & feedback",
+      "slot": null,
+      "outputs": [],
+      "props": {
+        "delta": {
+          "kind": "string",
+          "default": "12% vs last month"
+        },
+        "label": {
+          "kind": "string",
+          "default": "Monthly active users"
+        },
+        "trend": {
+          "kind": "enum",
+          "options": [
+            "up",
+            "down",
+            "flat"
+          ],
+          "default": "up"
+        },
+        "value": {
+          "kind": "string",
+          "default": "48,210"
+        }
+      },
+      "excluded": []
+    },
+    "Text": {
+      "tag": "apc-text",
+      "label": "Text",
+      "component": "TextBlock",
+      "selector": "ui-text",
+      "category": "Content",
+      "slot": null,
+      "outputs": [],
+      "props": {
+        "muted": {
+          "kind": "boolean",
+          "default": false
+        },
+        "size": {
+          "kind": "enum",
+          "options": [
+            "sm",
+            "md",
+            "lg"
+          ],
+          "default": "md"
+        },
+        "text": {
+          "kind": "string",
+          "default": "Supporting copy that explains the section."
+        }
+      },
+      "excluded": []
+    }
+  }
+}

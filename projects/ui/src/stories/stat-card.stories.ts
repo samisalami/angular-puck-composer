@@ -4,6 +4,8 @@ import { StatCard } from '../lib/stat-card';
 const meta: Meta<StatCard> = {
   title: 'Components/StatCard',
   component: StatCard,
+  tags: ['puck'],
+  parameters: { puck: { category: 'Data & feedback' } },
   args: { label: 'Monthly active users', value: '48,210', delta: '12% vs last month', trend: 'up' },
   argTypes: { trend: { control: 'radio', options: ['up', 'down', 'flat'] } },
 };

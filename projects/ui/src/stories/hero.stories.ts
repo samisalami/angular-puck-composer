@@ -4,6 +4,8 @@ import { Hero } from '../lib/hero';
 const meta: Meta<Hero> = {
   title: 'Components/Hero',
   component: Hero,
+  tags: ['puck'],
+  parameters: { puck: { category: 'Marketing', fields: { title: 'textarea', subtitle: 'textarea' } } },
   args: {
     eyebrow: 'New in 2027',
     title: 'Ship designs your managers can click',

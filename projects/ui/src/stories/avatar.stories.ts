@@ -4,6 +4,8 @@ import { Avatar } from '../lib/avatar';
 const meta: Meta<Avatar> = {
   title: 'Components/Avatar',
   component: Avatar,
+  tags: ['puck'],
+  parameters: { puck: { category: 'Content' } },
   args: { name: 'Ada Lovelace', size: 40 },
   argTypes: { size: { control: { type: 'range', min: 24, max: 96, step: 4 } } },
 };

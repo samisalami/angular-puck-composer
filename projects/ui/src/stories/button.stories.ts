@@ -4,6 +4,8 @@ import { Button } from '../lib/button';
 const meta: Meta<Button> = {
   title: 'Components/Button',
   component: Button,
+  tags: ['puck'],
+  parameters: { puck: { category: 'Content' } },
   args: { label: 'Get started', variant: 'primary', size: 'md' },
   argTypes: {
     variant: { control: 'select', options: ['primary', 'secondary', 'ghost'] },

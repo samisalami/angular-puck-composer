@@ -6,6 +6,8 @@ import { ProgressBar } from '../lib/progress-bar';
 const meta: Meta<Card> = {
   title: 'Components/Card',
   component: Card,
+  tags: ['puck'],
+  parameters: { puck: { category: 'Content', fields: { body: 'textarea' } } },
   decorators: [moduleMetadata({ imports: [ProgressBar] })],
   args: {
     title: 'Self-service onboarding',

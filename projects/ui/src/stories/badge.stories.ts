@@ -4,6 +4,8 @@ import { Badge } from '../lib/badge';
 const meta: Meta<Badge> = {
   title: 'Components/Badge',
   component: Badge,
+  tags: ['puck'],
+  parameters: { puck: { category: 'Content' } },
   args: { label: 'Beta', tone: 'info' },
   argTypes: { tone: { control: 'select', options: ['neutral', 'success', 'warning', 'danger', 'info'] } },
 };

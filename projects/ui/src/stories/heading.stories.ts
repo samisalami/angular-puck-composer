@@ -4,6 +4,8 @@ import { Heading } from '../lib/heading';
 const meta: Meta<Heading> = {
   title: 'Components/Heading',
   component: Heading,
+  tags: ['puck'],
+  parameters: { puck: { category: 'Content' } },
   args: { text: 'Quarterly roadmap', level: 2, align: 'left' },
   argTypes: {
     level: { control: 'select', options: [1, 2, 3, 4] },

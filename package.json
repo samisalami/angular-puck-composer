@@ -3,6 +3,10 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
+    "puck:generate": "node scripts/puck/generate.mjs",
+    "puck:check": "node scripts/puck/generate.mjs --check",
+    "puck:verify": "node scripts/puck/verify.mjs",
+    "puck:smoke": "node scripts/puck/smoke.mjs",
     "storybook": "ng run ui:storybook",
     "build:storybook": "ng run ui:build-storybook",
     "build:elements": "ng build elements",
@@ -36,6 +40,7 @@
     "@types/node": "^24.19.2",
     "jsdom": "^30.0.0",
     "ng-packagr": "^22.2.0",
+    "playwright": "^1.64.1",
     "prettier": "^3.8.1",
     "storybook": "^10.6.2",
     "typescript": "~6.0.2",

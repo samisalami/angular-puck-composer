@@ -1,7 +1,8 @@
-import { provideBrowserGlobalErrorListeners, type Type } from '@angular/core';
+import { provideBrowserGlobalErrorListeners } from '@angular/core';
 import { createApplication } from '@angular/platform-browser';
 import { createCustomElement } from '@angular/elements';
-import { Alert, Avatar, Badge, Button, Card, Heading, Hero, Navbar, ProgressBar, Quote, StatCard, TextBlock } from '@apc/ui';
+// Tag → component map, generated from the stories tagged 'puck' (pnpm puck:generate).
+import { elements } from './elements.generated';
 
 /**
  * Builds the @apc/ui components as standard Web Components (custom elements) so non-Angular
@@ -11,23 +12,11 @@ import { Alert, Avatar, Badge, Button, Card, Heading, Hero, Navbar, ProgressBar,
  * selector (`ui-button`), the `<ui-button>` that Angular renders inside e.g. <ui-hero> would get
  * upgraded as a custom element too and render a second Button inside itself.
  */
-const elements: Record<string, Type<unknown>> = {
-  'apc-alert': Alert,
-  'apc-avatar': Avatar,
-  'apc-badge': Badge,
-  'apc-button': Button,
-  'apc-card': Card,
-  'apc-heading': Heading,
-  'apc-hero': Hero,
-  'apc-navbar': Navbar,
-  'apc-progress-bar': ProgressBar,
-  'apc-quote': Quote,
-  'apc-stat-card': StatCard,
-  'apc-text': TextBlock,
-};
 
 // Angular 22 is zoneless by default: input changes made through the element's properties
 // are signal writes, which schedule change detection on their own.
+// Hand-written on purpose: services the components inject can't be inferred by the generator.
+// Add them here (e.g. provideHttpClient(), translation providers); `pnpm puck:smoke` catches gaps.
 const app = await createApplication({ providers: [provideBrowserGlobalErrorListeners()] });
 
 for (const [tag, component] of Object.entries(elements)) {

@@ -4,6 +4,8 @@ import { TextBlock } from '../lib/text';
 const meta: Meta<TextBlock> = {
   title: 'Components/Text',
   component: TextBlock,
+  tags: ['puck'],
+  parameters: { puck: { category: 'Content', fields: { text: 'textarea' } } },
   args: { text: 'Supporting copy that explains the section.', size: 'md', muted: false },
   argTypes: { size: { control: 'radio', options: ['sm', 'md', 'lg'] } },
 };
