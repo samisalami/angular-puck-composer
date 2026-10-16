@@ -1,0 +1,36 @@
+# Docker Swarm stack. Build + push the images with compose.yml first, then:
+#
+#   docker node update --label-add apc-data=true <node>          # once: where page JSON lives
+#   export REGISTRY=registry.example.com/apc TAG=1                # stack deploy does NOT read .env
+#   docker stack deploy -c stack.yml --with-registry-auth apc
+
+services:
+  composer:
+    image: ${REGISTRY:?set REGISTRY}/composer:${TAG:-latest}
+    ports: ["3001:3000"]
+    volumes: ["pages:/data"]
+    networks: [apc]
+    deploy:
+      # Pages are JSON files on a volume: no locking, no replication. One replica, pinned to the
+      # labelled node (local volumes are node-local) - or mount shared storage and drop the constraint.
+      replicas: 1
+      update_config: { order: stop-first }
+      restart_policy: { condition: on-failure }
+      placement:
+        constraints: ["node.labels.apc-data == true"]
+
+  storybook:
+    image: ${REGISTRY:?set REGISTRY}/storybook:${TAG:-latest}
+    ports: ["6006:80"]
+    networks: [apc]
+    deploy:
+      replicas: 2 # static nginx, stateless
+      update_config: { order: start-first, failure_action: rollback }
+      restart_policy: { condition: on-failure }
+
+networks:
+  apc:
+    driver: overlay
+
+volumes:
+  pages:

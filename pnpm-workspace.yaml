@@ -1,0 +1,11 @@
+# Root = the Angular CLI workspace. The React/Puck composer and the page server are extra packages.
+packages:
+  - composer
+  - server
+
+# pnpm 11+ blocks dependency build scripts by default; these native/binary deps of the Angular CLI need them.
+allowBuilds:
+  esbuild: true
+  "@parcel/watcher": true
+  lmdb: true
+  msgpackr-extract: true

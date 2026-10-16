@@ -1,0 +1,19 @@
+# Local build & run:   docker compose up --build
+# Build/push images for the swarm stack (see stack.yml):
+#   REGISTRY=registry.example.com/apc TAG=1 docker compose build
+#   REGISTRY=registry.example.com/apc TAG=1 docker compose push
+
+services:
+  composer:
+    image: ${REGISTRY:-apc}/composer:${TAG:-latest}
+    build: { context: ., dockerfile: docker/composer.Dockerfile }
+    ports: ["3001:3000"]
+    volumes: ["pages:/data"]
+
+  storybook:
+    image: ${REGISTRY:-apc}/storybook:${TAG:-latest}
+    build: { context: ., dockerfile: docker/storybook.Dockerfile }
+    ports: ["6006:80"]
+
+volumes:
+  pages:

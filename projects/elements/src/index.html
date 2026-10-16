@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>@apc/ui custom elements</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<!-- Smoke-test page: the custom elements used from plain HTML, no framework. -->
+<body class="ui-canvas" style="margin: 0">
+  <apc-navbar brand="Acme" links="Overview, Projects, Reports" cta-label="New project"></apc-navbar>
+  <div class="ui-section"><div class="ui-section__inner ui-stack">
+    <apc-heading text="Custom elements smoke test"></apc-heading>
+    <div class="ui-grid">
+      <apc-stat-card label="Monthly active users" value="48,210" delta="12%" trend="up"></apc-stat-card>
+      <apc-stat-card label="Revenue" value="€312k" delta="4%" trend="up"></apc-stat-card>
+      <apc-stat-card label="Churn" value="2.1%" delta="0.4pp" trend="down"></apc-stat-card>
+    </div>
+    <apc-card title="Projected content" badge="ng-content" footer="Footer">
+      <apc-progress-bar label="Progress" value="72"></apc-progress-bar>
+    </apc-card>
+    <apc-button label="Fire the pressed event" onclick="void 0"></apc-button>
+  </div></div>
+  <script>
+    document.querySelector('apc-button').addEventListener('pressed', () => console.log('pressed event received'));
+  </script>
+</body>
+</html>

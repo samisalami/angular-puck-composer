@@ -1,0 +1,9 @@
+{
+  "name": "@apc/page-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Zero-dependency static file server + JSON page store for the composer",
+  "bin": { "apc-page-server": "./server.mjs" },
+  "exports": { ".": "./server.mjs", "./vite": "./vite-plugin.mjs", "./client": "./client.ts" }
+}

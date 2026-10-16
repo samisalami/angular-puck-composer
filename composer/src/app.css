@@ -1,0 +1,14 @@
+/* Composer chrome only. Component styling comes from the Angular elements bundle (/elements/styles.css). */
+body { margin: 0; font-family: system-ui, sans-serif; }
+.pc-pad { padding: 24px; }
+.pc-home { max-width: 760px; margin: 48px auto; padding: 0 16px; }
+.pc-row { display: flex; gap: 8px; margin: 16px 0 24px; }
+.pc-row input { flex: 1; padding: 8px; }
+.pc-home table { width: 100%; border-collapse: collapse; }
+.pc-home td { padding: 8px; border-bottom: 1px solid #ddd; }
+.pc-status { font-size: 12px; color: #666; align-self: center; }
+.pc-link { font-size: 14px; align-self: center; margin: 0 8px; }
+.pc-toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 1000;
+  background: #14171c; color: #fff; padding: 10px 16px; border-radius: 8px; font: 14px system-ui, sans-serif;
+}

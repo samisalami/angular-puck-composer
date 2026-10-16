@@ -1,0 +1,26 @@
+{
+  "name": "@apc/composer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 3001",
+    "build": "tsc -p tsconfig.json && vite build",
+    "start": "STATIC_DIR=dist DATA_DIR=data apc-page-server",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@apc/page-server": "workspace:*",
+    "@puckeditor/core": "^0.23.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "typescript": "~6.0.2",
+    "vite": "^7.3.7"
+  }
+}

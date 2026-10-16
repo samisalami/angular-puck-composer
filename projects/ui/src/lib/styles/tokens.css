@@ -1,0 +1,46 @@
+/* Design tokens + base typography. Loaded globally by every consumer (Storybook, elements bundle, apps).
+   Components only read these variables, so a theme switch is just a data-theme attribute. */
+:root {
+  --ui-bg: #ffffff;
+  --ui-surface: #f6f7f9;
+  --ui-border: #e3e6ea;
+  --ui-text: #14171c;
+  --ui-muted: #5d6673;
+  --ui-primary: #3b5bdb;
+  --ui-primary-text: #ffffff;
+  --ui-success: #2b8a3e;
+  --ui-warning: #e67700;
+  --ui-danger: #c92a2a;
+  --ui-info: #1971c2;
+  --ui-radius: 10px;
+  --ui-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+[data-theme="dark"] {
+  --ui-bg: #12151a;
+  --ui-surface: #1b2028;
+  --ui-border: #2c333d;
+  --ui-text: #e9ecef;
+  --ui-muted: #9aa4b2;
+  --ui-primary: #748ffc;
+  --ui-primary-text: #0b0d12;
+}
+
+/* Scoped base styles instead of global body/element resets, so the library can live next to
+   another app's UI (e.g. the Puck editor chrome) without restyling it. */
+.ui-canvas {
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font-family: var(--ui-font);
+  line-height: 1.5;
+}
+.ui-canvas *, .ui-canvas *::before, .ui-canvas *::after { box-sizing: border-box; }
+
+/* Layout primitives as plain CSS classes. The composer renders layout in React (see README),
+   Angular templates can use the same classes. */
+.ui-section { padding: var(--ui-section-pad, 48px) 24px; }
+.ui-section--surface { background: var(--ui-surface); }
+.ui-section--primary { background: var(--ui-primary); color: var(--ui-primary-text); }
+.ui-section__inner { max-width: 1120px; margin: 0 auto; }
+.ui-stack { display: flex; flex-direction: column; gap: var(--ui-gap, 16px); }
+.ui-stack--row { flex-direction: row; flex-wrap: wrap; align-items: center; }
+.ui-grid { display: grid; gap: var(--ui-gap, 16px); grid-template-columns: repeat(var(--ui-cols, 3), minmax(0, 1fr)); }
