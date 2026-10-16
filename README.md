@@ -9,6 +9,8 @@ cloud services.
 - **[Puck](https://puckeditor.com)** (MIT, React) is the visual editor. It renders the Angular components
   through **[Angular Elements](https://angular.dev/guide/elements)**, which packages them as standard Web
   Components.
+- **The Puck integration is generated.** You write a component and its story; one script produces
+  everything Puck needs. A second script checks that a component can be used in Puck.
 
 **Contents**
 
@@ -17,11 +19,13 @@ cloud services.
 3. [Requirements](#3-requirements)
 4. [Setup in an existing Angular project: Storybook](#4-setup-in-an-existing-angular-project-storybook)
 5. [Setup in an existing Angular project: Puck composer](#5-setup-in-an-existing-angular-project-puck-composer)
-6. [Guide: how a component becomes available in Puck](#6-guide-how-a-component-becomes-available-in-puck)
-7. [Design decisions](#7-design-decisions)
-8. [Docker & Docker Swarm](#8-docker--docker-swarm)
-9. [Troubleshooting](#9-troubleshooting)
-10. [Known limitations](#10-known-limitations)
+6. [Guide: making a component available in Puck](#6-guide-making-a-component-available-in-puck)
+7. [The `puck:*` scripts](#7-the-puck-scripts)
+8. [Running the checks in CI](#8-running-the-checks-in-ci)
+9. [Design decisions](#9-design-decisions)
+10. [Docker & Docker Swarm](#10-docker--docker-swarm)
+11. [Troubleshooting](#11-troubleshooting)
+12. [Known limitations](#12-known-limitations)
 
 ---
 
@@ -30,13 +34,16 @@ cloud services.
 ```
 .
 ├── projects/
-│   ├── ui/          # Angular library @apc/ui: components, design tokens, Storybook stories, specs
-│   └── elements/    # Angular app that registers the components as custom elements (<apc-*>)
-├── composer/        # React + Vite + Puck editor; loads the elements bundle at runtime
-├── server/          # zero-dependency Node server: serves the composer + stores pages as JSON
-├── docker/          # Dockerfiles (composer, storybook)
-├── compose.yml      # local Docker
-└── stack.yml        # Docker Swarm
+│   ├── ui/                      # Angular library @apc/ui: components, design tokens, stories, specs
+│   └── elements/                # Angular app that registers the components as custom elements (<apc-*>)
+│       └── src/elements.generated.ts   ← generated
+├── composer/                    # React + Vite + Puck editor; loads the elements bundle at runtime
+│   └── src/generated/           ← generated: Puck blocks, JSX typings, schema manifest
+├── scripts/puck/                # generator, verifier, smoke test (plain Node, no build step)
+├── server/                      # zero-dependency Node server: serves the composer + stores pages as JSON
+├── docker/                      # Dockerfiles (composer, storybook)
+├── compose.yml                  # local Docker
+└── stack.yml                    # Docker Swarm
 ```
 
 Node `^22.22.3 || ^24.15.0` and pnpm 12 (`corepack enable` or `npm i -g pnpm@12`).
@@ -46,36 +53,37 @@ pnpm install
 pnpm build:elements   # once, so the composer has a bundle to load
 pnpm dev              # elements watch-build + composer  → http://localhost:3001
 pnpm storybook        # Storybook for Angular           → http://localhost:6006
-pnpm test             # library unit tests (vitest)
 ```
 
 In the composer, click **Seed demo page**, then **edit** (Puck editor) or **view** (the link for
-management). After changing an Angular component, `pnpm dev` rebuilds the bundle; reload the composer.
+management).
 
 | Script | Does |
 |---|---|
 | `pnpm dev` | `ng build elements --watch` + Vite dev server for the composer (port 3001) |
 | `pnpm storybook` / `pnpm build:storybook` | Storybook for Angular (port 6006 / `dist/storybook`) |
+| `pnpm puck:verify [Name…]` | Checks that components + stories can be used in Puck ([section 7](#7-the-puck-scripts)) |
+| `pnpm puck:generate` | Regenerates the Puck integration from the stories |
+| `pnpm puck:check` | Fails if the generated files are out of date |
+| `pnpm puck:smoke` | Renders every block in headless Chromium (needs a build) |
 | `pnpm build:elements` | Angular Elements bundle → `dist/elements/browser` |
 | `pnpm build:composer` | Composer → `composer/dist` (copies the elements bundle into `dist/elements`) |
-| `pnpm build` | All three |
-| `pnpm test` | Unit tests for `@apc/ui` |
+| `pnpm build` | Elements + composer + Storybook |
+| `pnpm test` | Unit tests for `@apc/ui` (vitest) |
 | `docker compose up --build` | Composer on :3001, Storybook on :6006 in containers |
 
 ### What has been verified
 
-Tested in headless Chromium against both the dev servers and the Docker images:
-
 | Check | Result |
 |---|---|
+| All 12 components generated from their stories; generated files type-check | ✓ |
+| `puck:smoke`: every generated block renders as an Angular element in the share view and appears in the editor drawer, no page errors | ✓ |
+| `puck:smoke` **fails** when a component injects a service the elements app doesn't provide (`NG0201`) | ✓ |
+| `puck:verify` reports every rule violation in a deliberately broken component/story (unsupported type, missing default, alias, two `<ng-content>`, `argTypes` ≠ type, unknown `parameters.puck` key, dynamic `meta`, not exported, …) and `puck:generate` refuses to write | ✓ |
+| `puck:verify` detects breaking changes (renamed input, removed option) against the committed manifest; `--allow-breaking` downgrades them to warnings | ✓ |
+| In the editor: changing a field updates the Angular component; blocks can be dropped into the Card's `<ng-content>`; Angular `output()` reaches React (share-view toast) | ✓ |
 | Storybook for Angular renders all components and the `Pages/Dashboard` story | ✓ |
-| Puck editor renders the Angular elements; demo page loads | ✓ |
-| Changing a field in Puck updates the Angular component (zoneless, signal inputs) | ✓ |
-| `<ng-content>`: Puck-managed children inside `<apc-card>` are projected in the right place | ✓ |
-| Dropping a block **into** the card and deleting it again (no DOM errors) | ✓ |
-| A component added by following [section 6](#6-guide-how-a-component-becomes-available-in-puck) (`Quote`) shows up in Puck and Storybook | ✓ |
-| Angular `output()` reaches React as a DOM event (share view shows a toast) | ✓ |
-| Page saved through the server; share view renders it without the editor | ✓ |
+| Docker images build, become healthy, and pass the same browser checks | ✓ |
 
 **Not tested:** a real multi-node `docker stack deploy` (`stack.yml` is only validated with
 `docker compose config`), and Angular versions other than 22.
@@ -85,32 +93,36 @@ Tested in headless Chromium against both the dev servers and the Docker images:
 ## 2. How it works
 
 ```
-your Angular components (library or app)
-   │                              │
-   │ Storybook for Angular        │ elements build target (createCustomElement)
-   ▼                              ▼
-Storybook                   dist/elements/browser/main.js + styles.css
-                                  │   defines <apc-card>, <apc-stat-card>, …
-                                  ▼
-                    composer (React 19 + Puck) loads /elements/main.js at runtime
-                                  │   Puck config renders <apc-*> tags
-                                  ▼
-                 /edit/:slug  (editor, devs)      /view/:slug  (share link, management)
-                                  │
-                    page server: one JSON file per page in /data
+             you write                                generated by pnpm puck:generate
+ ┌──────────────────────────────┐        ┌──────────────────────────────────────────────────────┐
+ │ projects/ui/src/lib/quote.ts │        │ projects/elements/src/elements.generated.ts   tag → class │
+ │ projects/ui/src/stories/     │ ─────▶ │ composer/src/generated/custom-elements.d.ts   JSX typings │
+ │   quote.stories.ts           │        │ composer/src/generated/blocks.tsx             Puck blocks │
+ │   (tags: ['puck'])           │        │ composer/src/generated/puck-manifest.json     schema      │
+ └──────────────────────────────┘        └──────────────────────────────────────────────────────┘
+        │                                         │                          │
+        │ Storybook for Angular                   │ ng build elements        │ Vite build
+        ▼                                         ▼                          ▼
+   Storybook (docs)                 /elements/main.js (custom elements) → composer (React + Puck)
+                                                                             │
+                                               /edit/:slug (devs)    /view/:slug (management)
+                                                                             │
+                                                         page server: one JSON file per page
 ```
 
-- **Two independent builds.** The composer never imports Angular code. It loads the finished
-  elements bundle through a `<script>` tag (`composer/src/elements.ts`), so Angular and React versions
-  don't affect each other. The bundle is ~146 kB (43 kB gzipped) for the Angular runtime plus all 12
-  components.
+- **The generator only reads code.** It uses the TypeScript type checker on the components (so
+  `input<Tone>()` resolves to its actual options) and Angular's own template parser (to find
+  `<ng-content>`). Stories are read statically. Nothing runs Angular, Storybook or a browser.
+- **Two independent builds.** The composer never imports Angular code; it loads the finished elements
+  bundle through a `<script>` tag. The bundle is ~146 kB (43 kB gzipped) for the Angular runtime plus
+  all 12 components.
 - **Readiness handshake.** After defining every tag, the bundle sets `window.apcElements` and fires
-  an `apc-elements-ready` event. React renders only after that, so React 19 sets props as real
-  **properties** (numbers stay numbers) rather than string attributes.
-- **Layout is React, content is Angular.** Section/Stack/Grid blocks are plain React elements using
-  the library's CSS classes. All content blocks are Angular components.
-- **Pages are JSON.** Puck's data model (`{ root, content: [{ type, props }] }`) is saved by the page
-  server and rendered by Puck's `<Render>` for the share view.
+  `apc-elements-ready`. React renders only after that, so React 19 sets props as real properties
+  (numbers stay numbers) rather than string attributes.
+- **Layout is React, content is Angular.** Section/Stack/Grid are hand-written React blocks using the
+  library's CSS classes. Every content block is generated and renders an Angular element.
+- **Pages are JSON** (`{ root, content: [{ type, props }] }`), saved by the page server and rendered by
+  Puck's `<Render>` in the share view.
 
 ---
 
@@ -118,20 +130,22 @@ Storybook                   dist/elements/browser/main.js + styles.css
 
 | | Version | Why |
 |---|---|---|
-| Node | `^22.22.3 \|\| ^24.15.0 \|\| >=26` | Angular CLI 22 engine requirement |
+| Node | `^22.22.3 \|\| ^24.15.0 \|\| >=26` | Angular CLI 22 engine requirement; the scripts are plain Node ESM |
 | Angular | **22** (tested). Probably 18+ (Storybook 10's supported range), untested | `@angular/elements`, signal inputs |
 | `@angular/elements` | same as `@angular/core` | builds the custom elements |
-| TypeScript | `~6.0` for Angular 22 | Angular compiler peer dependency |
+| `@angular/compiler` | same as `@angular/core` (already a dependency) | generator: template parsing |
+| TypeScript | `~6.0` for Angular 22 | Angular compiler + generator: type analysis |
+| Prettier | 3.x (Angular CLI projects already have it) | generator: deterministic formatting |
 | Storybook | 10.x: `storybook`, `@storybook/angular`, `@storybook/addon-docs` | |
 | `@angular-devkit/build-angular` | same major as Angular | **required by `@storybook/angular`**, even if your app builds with `@angular/build` |
-| React | **19** (composer only) | React 18 passes everything to custom elements as string attributes; 19 sets properties |
+| React | **19** (composer only) | React 18 passes everything to custom elements as string attributes |
 | Puck | `@puckeditor/core` 0.23 (0.x, pin it) | the editor |
-| Vite | 7.x (composer only) | dev server/build for the composer |
-| Package manager | pnpm 12 (used here), npm/yarn work too | workspaces for `composer/` and `server/` |
-| Browser | any evergreen | Custom Elements v1 |
+| Vite | 7.x (composer only) | composer dev server/build |
+| Playwright | 1.64+ (dev only) + Chromium | `puck:smoke` |
+| Package manager | pnpm 12 (used here); npm/yarn work too | workspaces for `composer/` and `server/` |
 
-**Your components must be standalone** (the default since Angular 19). NgModule-declared components
-need converting, or a standalone wrapper. See the component checklist in [section 6.6](#66-component-checklist).
+**Components must be standalone** (the default since Angular 19). The full rule set is in
+[6.4](#64-rules-for-components-and-stories); `pnpm puck:verify` checks it.
 
 ---
 
@@ -168,9 +182,8 @@ pnpm add -D storybook@^10 @storybook/angular@^10 @storybook/addon-docs@^10 \
 
 ### 4.2 `angular.json` targets
 
-Add to the project that owns the components (library or app). `browserTarget` points at that
-project's build target. `styles` must contain **every global stylesheet the components rely on**
-(tokens, fonts, resets):
+Add to the project that owns the components. `browserTarget` points at that project's build target.
+`styles` must contain **every global stylesheet the components rely on** (tokens, fonts):
 
 ```jsonc
 "storybook": {
@@ -194,9 +207,6 @@ project's build target. `styles` must contain **every global stylesheet the comp
   }
 }
 ```
-
-`compodoc: true` (plus `pnpm add -D @compodoc/compodoc`) generates controls and docs from the
-component inputs. This repo writes `argTypes` by hand instead.
 
 ### 4.3 `.storybook/` files
 
@@ -237,7 +247,8 @@ const preview: Preview = {
 export default preview;
 ```
 
-`projects/ui/.storybook/tsconfig.json`
+`projects/ui/.storybook/tsconfig.json`. **The generator reads stories through this file**
+(`scripts/puck/config.mjs` → `storiesTsconfig`), so it must include them:
 
 ```json
 {
@@ -249,33 +260,7 @@ export default preview;
 }
 ```
 
-### 4.4 Stories
-
-One file per component (`projects/ui/src/stories/*.stories.ts`). Outputs can be wired to the actions
-panel:
-
-```ts
-import type { Meta, StoryObj } from '@storybook/angular';
-import { Button } from '../lib/button';
-
-const meta: Meta<Button> = {
-  title: 'Components/Button',
-  component: Button,
-  args: { label: 'Get started', variant: 'primary', size: 'md' },
-  argTypes: {
-    variant: { control: 'select', options: ['primary', 'secondary', 'ghost'] },
-    size: { control: 'radio', options: ['sm', 'md', 'lg'] },
-    pressed: { action: 'pressed' },
-  },
-};
-export default meta;
-export const Primary: StoryObj<Button> = {};
-```
-
-Page-level compositions in code are still useful as a reference (see
-`projects/ui/src/stories/dashboard.stories.ts`, using `moduleMetadata({ imports: [...] })`).
-
-### 4.5 Run / host
+### 4.4 Run / host
 
 ```sh
 ng run ui:storybook          # dev
@@ -286,57 +271,77 @@ ng run ui:build-storybook    # static output in dist/storybook → any web serve
 
 ## 5. Setup in an existing Angular project: Puck composer
 
-You add three things to the existing workspace:
+You add four things to the existing workspace. Your existing app stays untouched; the composer is a
+separate internal tool next to it.
 
-| Piece | What | Where in this repo |
+| Piece | What | Copy from this repo |
 |---|---|---|
-| **A. Elements build** | An Angular build target that registers your components as custom elements | `projects/elements/` + `angular.json` |
-| **B. Composer** | A small React + Vite + Puck app that loads that bundle | `composer/` |
-| **C. Page server** | Serves the composer and stores pages (JSON files) | `server/` |
+| **A. Generator scripts** | Produce and check the Puck integration from stories | `scripts/puck/` |
+| **B. Elements build** | Angular build target that registers the components as custom elements | `projects/elements/` + `angular.json` target |
+| **C. Composer** | React + Vite + Puck app that loads the elements bundle | `composer/` |
+| **D. Page server** | Serves the composer, stores pages as JSON | `server/` |
 
-Your existing app is untouched. The composer is a separate internal tool next to it.
+### 5.1 A. Generator scripts
 
-### 5.1 Make the components importable
+Copy `scripts/puck/` and adapt **only** `scripts/puck/config.mjs`:
 
-The elements build imports the components, so they need an import path. In this repo it's a `tsconfig`
-path to the library **source**, so no library build is needed first:
+```js
+export const config = {
+  storiesTsconfig: 'projects/ui/.storybook/tsconfig.json', // tsconfig that includes your stories
+  tag: 'puck',                                             // opt-in story tag
+  selectorPrefix: 'ui-',                                   // your component selector prefix
+  tagPrefix: 'apc-',                                       // custom element prefix (must differ!)
+  libraryImport: '@apc/ui',                                // how generated code imports components
+  libraryEntry: 'projects/ui/src/public-api.ts',           // file that exports them
+  out: { /* where the 4 generated files go */ },
+  defaultCategory: 'Components',
+  longTextWarning: 60,
+};
+```
+
+The library must be importable under `libraryImport`. In this repo that's a `tsconfig` path to the
+**source**, so no library build is needed first:
 
 ```jsonc
 // tsconfig.json
 "paths": { "@apc/ui": ["./projects/ui/src/public-api.ts"] }
 ```
 
-If your components live inside the app rather than a library, import them by relative path in step
-5.2. That works the same way.
+Add the scripts and Playwright (for the smoke test):
 
-### 5.2 A. Elements build target
+```sh
+pnpm add -D playwright@^1.64 && pnpm exec playwright install chromium
+```
+
+```json
+"puck:generate": "node scripts/puck/generate.mjs",
+"puck:check": "node scripts/puck/generate.mjs --check",
+"puck:verify": "node scripts/puck/verify.mjs",
+"puck:smoke": "node scripts/puck/smoke.mjs"
+```
+
+### 5.2 B. Elements build target
 
 ```sh
 pnpm add @angular/elements@^22
 ng generate application elements --style=css --skip-tests --ssr=false --routing=false
 ```
 
-Delete the generated `src/app/` and `public/`, then replace `projects/elements/src/main.ts`:
+Delete the generated `src/app/` and `public/`, then replace `projects/elements/src/main.ts`. The
+**tag → component map is generated**; this file only holds what can't be generated, namely the
+services your components inject:
 
 ```ts
-import { provideBrowserGlobalErrorListeners, type Type } from '@angular/core';
+import { provideBrowserGlobalErrorListeners } from '@angular/core';
 import { createApplication } from '@angular/platform-browser';
 import { createCustomElement } from '@angular/elements';
-import { Button, Card, StatCard /* … */ } from '@apc/ui';
-
-// Tag → component. Use a prefix that is NOT your component selector prefix (see section 7).
-const elements: Record<string, Type<unknown>> = {
-  'apc-button': Button,
-  'apc-card': Card,
-  'apc-stat-card': StatCard,
-  // …
-};
+import { elements } from './elements.generated';
 
 const app = await createApplication({
   providers: [
     provideBrowserGlobalErrorListeners(),
-    // Add whatever your components inject, e.g. provideHttpClient(), provideRouter([]),
-    // your translation/i18n providers, icon registries, …
+    // Everything your components inject that isn't providedIn: 'root', e.g. provideRouter([]),
+    // translation/i18n providers, icon registries. `pnpm puck:smoke` fails if something is missing.
   ],
 });
 
@@ -369,110 +374,95 @@ defaults:
 }
 ```
 
-The output is `dist/elements/browser/{main.js,styles.css}`. Smoke-test it without any framework by
-opening `projects/elements/src/index.html` through `ng serve elements`.
+**Zone.js vs zoneless:** Angular 22 is zoneless by default, and signal inputs set through the
+element trigger change detection on their own. If your project still uses zone.js, either add
+`provideZonelessChangeDetection()` (Angular 20+) to the providers above, which works for
+OnPush/signal components, or add `"polyfills": ["zone.js"]` to the elements target. The latter is
+needed for components that update through non-signal state without `markForCheck()`.
 
-**Zone.js vs zoneless:** Angular 22 (used here) is zoneless by default, and signal inputs set through
-the element trigger change detection on their own. If your project still uses zone.js, choose one:
+### 5.3 C. Composer
 
-- make the elements build zoneless: `provideZonelessChangeDetection()` (Angular 20+) in the
-  `createApplication` providers. This works for OnPush/signal-based components.
-- or add `"polyfills": ["zone.js"]` to the elements target. This is needed if components update
-  through non-signal state from timers, promises or subscriptions without `markForCheck()`.
-
-### 5.3 B. Composer app
-
-Copy `composer/` from this repo into your workspace and register it as a workspace package:
+Copy `composer/` and register it (and the server) as workspace packages:
 
 ```yaml
-# pnpm-workspace.yaml
+# pnpm-workspace.yaml  (npm/yarn: "workspaces": ["composer", "server"] in package.json)
 packages:
   - composer
   - server
 ```
 
-(npm/yarn: `"workspaces": ["composer", "server"]` in the root `package.json`.)
-
-Its dependencies (`composer/package.json`): `react@^19`, `react-dom@^19`, `@puckeditor/core@^0.23`,
+Dependencies (`composer/package.json`): `react@^19`, `react-dom@^19`, `@puckeditor/core@^0.23`,
 `vite@^7`, `@vitejs/plugin-react@^5`, `typescript`, `@types/react`, `@types/react-dom`, `@types/node`,
 and `@apc/page-server` (workspace).
 
-What each file does and what you adapt:
-
-| File | Purpose | Adapt? |
+| File | Purpose | You edit it? |
 |---|---|---|
-| `vite.config.ts` | Serves `../dist/elements/browser` at `/elements/*` in dev; copies it into `dist/elements` on build | path, if your output dir differs |
-| `src/elements.ts` | Loads the bundle, waits for `apc-elements-ready`; `useCustomEvent()` for outputs | event/global name, if renamed |
-| `src/custom-elements.d.ts` | JSX typings for the `apc-*` tags | **per component** |
-| `src/config.tsx` | Puck config: fields + render per component, layout blocks, categories | **per component** |
+| `src/generated/*` | Puck blocks, JSX typings, manifest | **never**, regenerate instead |
+| `src/config.tsx` | Root (theme), hand-written layout blocks, merges generated blocks + overrides | rarely |
+| `src/overrides.tsx` | Exceptions for generated blocks (e.g. Button's output → toast) | when a block needs custom behaviour |
+| `src/elements.ts` | Loads the bundle, waits for `apc-elements-ready`; `useCustomEvent()` | no |
 | `src/App.tsx` | Routes `/`, `/edit/:slug`, `/view/:slug`; Puck with `iframe: { enabled: false }` | rarely |
+| `vite.config.ts` | Serves `../dist/elements/browser` at `/elements/*`; copies it into `dist/` on build | only if paths differ |
 | `src/demo.ts` | Example page for "Seed demo page" | optional |
-| `src/main.tsx` | Loads elements, then renders; imports `@puckeditor/core/no-external.css` | no |
 
-Add scripts to the root `package.json`:
+Root scripts:
 
 ```json
-{
-  "build:elements": "ng build elements",
-  "build:composer": "pnpm --filter @apc/composer build",
-  "dev": "pnpm run \"/^dev:/\"",
-  "dev:elements": "ng build elements --watch --configuration development",
-  "dev:composer": "pnpm --filter @apc/composer dev"
-}
+"build:elements": "ng build elements",
+"build:composer": "pnpm --filter @apc/composer build",
+"dev": "pnpm run \"/^dev:/\"",
+"dev:elements": "ng build elements --watch --configuration development",
+"dev:composer": "pnpm --filter @apc/composer dev"
 ```
 
-### 5.4 C. Page server
+### 5.4 D. Page server
 
-Copy `server/`. It is ~150 lines of plain Node with no dependencies:
+Copy `server/` (~150 lines, no dependencies):
 
-- `GET /api/pages`, `GET|PUT /api/pages/:slug`: one JSON file per page in `DATA_DIR`, written
-  atomically.
-- Serves the built composer from `STATIC_DIR`, with SPA fallback so `/view/foo` works.
-- `GET /healthz` for container health checks.
-- The same API runs inside the Vite dev server (`server/vite-plugin.mjs`), so dev and prod behave the
-  same.
+- `GET /api/pages`, `GET|PUT /api/pages/:slug`: one JSON file per page in `DATA_DIR`, written atomically.
+- Serves the built composer from `STATIC_DIR` with SPA fallback; `GET /healthz` for health checks.
+- The same API runs inside the Vite dev server (`server/vite-plugin.mjs`).
 
-To store pages elsewhere (Postgres, S3, an existing CMS), replace `server/store.mjs`. It's three
-functions: `list`, `get`, `put`.
+To store pages elsewhere (Postgres, S3, a CMS), replace `server/store.mjs`. It's three functions:
+`list`, `get`, `put`.
 
 ### 5.5 Global styles
 
-Two rules matter, because the composer renders components **in the same document as Puck's editor
-UI** (no iframe):
+The composer renders components **in the same document as Puck's editor UI** (no iframe):
 
-1. Every global stylesheet your components need (tokens, fonts, icon fonts) goes into the elements
-   target's `styles`. It ends up in `/elements/styles.css`, which the composer loads.
-2. **Don't ship unscoped element selectors** (`body {}`, `button {}`, `h1 {}`, `* {}` resets). They
-   would restyle Puck's sidebars. Put base typography under a wrapper class instead. This repo uses
-   `.ui-canvas`, which Puck's root block and Storybook's decorator both apply.
+1. Every global stylesheet your components need goes into the elements target's `styles`. It ends up in
+   `/elements/styles.css`, which the composer loads.
+2. **Don't ship unscoped element selectors** (`body {}`, `button {}`, `* {}` resets). They would
+   restyle Puck's sidebars. Put base typography under a wrapper class (here `.ui-canvas`, applied by
+   Puck's root block and Storybook's decorator).
 
-### 5.6 Done: verify
+### 5.6 First run
 
 ```sh
+pnpm puck:verify        # fix what it reports
+pnpm puck:generate
 pnpm build:elements && pnpm dev
 ```
 
-Open http://localhost:3001 → **Seed demo page** (or create one) → **edit**. Your components should be
-in the left drawer.
+Open http://localhost:3001 → create a page → **edit**. Your opted-in components are in the left drawer.
 
 ---
 
-## 6. Guide: how a component becomes available in Puck
+## 6. Guide: making a component available in Puck
 
-The pipeline, using `Quote` (added to this repo by following exactly these steps):
+You write **two files**: the component and its story. Then:
 
+```sh
+pnpm puck:verify Quote    # is it Puck-ready? (fast, static)
+pnpm puck:generate        # regenerate the integration
+pnpm dev                  # or rebuild; reload the composer → it's in the drawer
 ```
-① Angular component  →  ② Storybook story  →  ③ custom element tag  →  ④ JSX typing  →  ⑤ Puck config
-  projects/ui            projects/ui/stories     projects/elements       composer/src       composer/src
-```
 
-Steps ③–⑤ are what make it appear in Puck. Steps ③–⑤ repeat the component's inputs by hand. That
-duplication is the main maintenance cost, and the obvious target for code generation later (from the
-Angular sources or compodoc's JSON).
+Commit the generated files together with the component and story.
 
-### 6.1 Build the component (①)
+### 6.1 The component
 
-`projects/ui/src/lib/quote.ts`
+A normal standalone Angular component. Nothing Puck-specific:
 
 ```ts
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
@@ -486,23 +476,20 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       @if (author()) { <figcaption>— {{ author() }}@if (role()) {, {{ role() }}}</figcaption> }
     </figure>
   `,
-  styles: `
-    :host { display: block; }
-    .quote { margin: 0; padding: 24px; border-left: 4px solid var(--ui-primary); background: var(--ui-surface); border-radius: 6px; }
-  `,
 })
 export class Quote {
-  readonly text = input('Quote text');   // give every input a sensible default
+  readonly text = input('Quote text');
   readonly author = input('');
   readonly role = input('');
 }
 ```
 
-Export it from `projects/ui/src/public-api.ts`: `export * from './lib/quote';`
+Export it from the library entry (`projects/ui/src/public-api.ts`): `export * from './lib/quote';`
 
-### 6.2 Story (②)
+### 6.2 The story
 
-`projects/ui/src/stories/quote.stories.ts`
+A normal Storybook story plus two additions: the `puck` tag (opt-in) and a small `parameters.puck`
+block for what can't be inferred:
 
 ```ts
 import type { Meta, StoryObj } from '@storybook/angular';
@@ -511,198 +498,240 @@ import { Quote } from '../lib/quote';
 const meta: Meta<Quote> = {
   title: 'Components/Quote',
   component: Quote,
+  tags: ['puck'],
+  parameters: { puck: { category: 'Content', fields: { text: 'textarea' } } },
   args: { text: 'We cut onboarding from two weeks to three days.', author: 'Ada Lovelace', role: 'Head of Growth' },
 };
 export default meta;
+
 export const Default: StoryObj<Quote> = {};
 ```
 
-### 6.3 Register the custom element (③)
+### 6.3 What is inferred, and from where
 
-`projects/elements/src/main.ts`: import it and add one line to the map:
-
-```ts
-import { /* … */ Quote } from '@apc/ui';
-
-const elements = {
-  // …
-  'apc-quote': Quote,
-};
-```
-
-That's all on the Angular side. The composer finds out about new tags through the readiness handshake.
-
-### 6.4 JSX typing (④)
-
-`composer/src/custom-elements.d.ts`: one line, mirroring the inputs:
-
-```ts
-"apc-quote": El<{ text?: string; author?: string; role?: string }>;
-```
-
-### 6.5 Puck config (⑤)
-
-`composer/src/config.tsx`: three additions.
-
-```tsx
-// a) props type (drives type-checking of fields/defaultProps/render)
-type Components = {
-  // …
-  Quote: { text: string; author: string; role: string };
-};
-
-// b) put it into a drawer category
-categories: {
-  content: { title: "Content", components: ["Heading", "Text", "Card", "Quote", /* … */] },
-},
-
-// c) the block itself
-components: {
-  Quote: {
-    fields: { text: { type: "textarea" }, author: { type: "text" }, role: { type: "text" } },
-    defaultProps: { text: "We cut onboarding from two weeks to three days.", author: "Ada Lovelace", role: "Head of Growth" },
-    render: ({ puck, ...props }) => <apc-quote {...stripId(props)} />,
-  },
-},
-```
-
-- `fields` are the form controls in Puck's right sidebar. `defaultProps` are what a freshly dropped
-  block gets.
-- `render` maps Puck props onto the custom element. Always take `puck` out and run the rest through
-  `stripId()`. Puck adds `id`/`editMode` props, which would otherwise end up as DOM attributes.
-- The key (`Quote`) is the block's **type name in saved pages**. Don't rename it later without
-  migrating pages ([6.9](#69-changing-components-later)).
-
-Rebuild (`pnpm dev` does it automatically) and reload: **Quote** is in the drawer.
-
-### 6.6 Component checklist
-
-A component works well in Puck when it is:
-
-- **Standalone**, with no dependency on being inside a specific parent component or route.
-- **Presentational.** Data comes in through inputs, not from services that fetch or need a logged-in
-  context. If a component injects a service, that service must be provided in the elements
-  `createApplication` (section 5.2) or by the component itself.
-- **Primitive inputs.** Use `string`, `number`, `boolean` and string unions. They map directly onto Puck
-  fields. Arrays/objects need Puck `array`/`object` fields or custom fields; templates/`TemplateRef`
-  inputs can't be edited at all. If a list is simple, a comma-separated string works (`Navbar.links`).
-- **Defaults for every input,** so a freshly dropped block renders something sensible. Prefer
-  `input('default')` over `input.required()`.
-- **Self-styled.** Component styles (`styles`/`styleUrl`, emulated encapsulation) work as they are.
-  Global CSS must be in the elements build (section 5.5).
-- **No router dependency** (`routerLink`, `ActivatedRoute`), unless you provide `provideRouter([])`
-  in the elements build.
-
-### 6.7 Field types
-
-| Angular input | Puck field | Example |
+| Puck needs | Taken from | Example |
 |---|---|---|
-| `input('')` short text | `{ type: "text" }` | label, title |
-| `input('')` long text | `{ type: "textarea" }` | body, quote |
-| `input(0)` | `{ type: "number", min, max }` | value, size, columns |
-| `input(false)` | `{ type: "radio", options: [{label:"yes",value:true},{label:"no",value:false}] }` | muted |
-| `input<'a' \| 'b'>('a')` (2–3 options) | `{ type: "radio", options }` | trend, align |
-| `input<'a' \| 'b' \| …>('a')` (more options) | `{ type: "select", options }` | tone, variant |
-| `<ng-content>` | `{ type: "slot" }` (see 6.8) | card body |
-| `string[]` / objects | `{ type: "array", arrayFields }` / `{ type: "object", objectFields }`, or a custom field | |
+| Custom element tag | selector, prefix swapped | `ui-quote` → `<apc-quote>` |
+| Block type name (stored in saved pages!) | selector, PascalCase | `ui-stat-card` → `StatCard` |
+| Editable props + their types | component inputs, via the TypeScript type checker | `input<Tone>('info')` → `'neutral' \| … \| 'info'` |
+| Field kind: `string` | `text`; `textarea` only via `parameters.puck.fields` | |
+| Field kind: `number` | `number`; `min`/`max`/`step` from `argTypes` `range`/`number` control | `{ control: { type: 'range', min: 0, max: 100 } }` |
+| Field kind: `boolean` | yes/no radio | |
+| Field kind: union of literals | `argTypes` control `radio`/`select`; else radio for ≤ 3 options, select above | |
+| Option order | as written in the type declaration | |
+| Default values | story `args`, else the input's default | |
+| Slot (nested blocks) | an `<ng-content>` in the template (Angular's template parser, also inside `@if`) | Card |
+| Drawer category / label | `parameters.puck.category` / `.label` (label defaults to the block name) | |
+| Outputs | listed in the manifest; **not wired** (see 6.6) | |
 
-Booleans from Puck arrive as real booleans and numbers as numbers (React 19 sets properties).
-Inputs that are also used as HTML attributes elsewhere can still use
-`transform: booleanAttribute`/`numberAttribute`.
+`parameters.puck` reference:
 
-### 6.8 Components with `<ng-content>` (container blocks)
+| Key | Type | Purpose |
+|---|---|---|
+| `category` | `string` | Drawer group (default `"Components"`, with a warning) |
+| `label` | `string` | Drawer label (default: block name) |
+| `type` | `string` (PascalCase) | Override the block name, e.g. to keep saved pages working after a selector rename |
+| `fields` | `{ [input]: 'text' \| 'textarea' \| 'number' \| 'radio' \| 'select' }` | Field kind where inference isn't enough |
+| `exclude` | `string[]` | Inputs that should not be editable in Puck |
 
-The Angular side needs nothing special. `Card` simply has `<ng-content />` in its template. On the
-Puck side, declare a `slot` field and render the slot as the element's child:
+### 6.4 Rules for components and stories
+
+`puck:verify` enforces these. Errors block generation; warnings don't.
+
+**Errors**
+- Story has `meta.component` set to the component class, and the class is exported from the library entry.
+- Story `meta` is a **static object literal**: no spreads, function calls or shared objects in
+  `tags`, `args`, `argTypes`, `parameters.puck`. (Decorators and render functions are fine; they're
+  not read.)
+- Selector is a single element selector with the configured prefix; block names and tags are unique.
+- Component is standalone.
+- Every editable input has a **default**, from story `args` or the input itself.
+  `input.required()` needs a story arg.
+- Every editable input has a **supported type**: `string`, `number`, `boolean`, or a union of
+  string/number literals. Anything else (arrays, objects, templates, functions) must be listed in
+  `parameters.puck.exclude`.
+- Defaults match the type; `argTypes.options` match the union; `fields` overrides fit the type.
+- **No input aliases.**
+- At most **one default `<ng-content>`** (no `select=`). An input named like the slot (`content`)
+  isn't allowed.
+- `parameters.puck` contains only known keys (catches typos like `categroy`).
+- No **breaking changes** against the committed manifest, unless acknowledged (6.7).
+
+**Warnings**
+- No `category` set.
+- The component injects services → they must be provided in `projects/elements/src/main.ts`
+  (`puck:smoke` proves it).
+- Imports `@angular/router`, extends a base class (inherited inputs aren't seen), uses `hostDirectives`,
+  uses `model()`.
+- A `text` field with a long default (suggests `textarea`); story `args` that aren't inputs.
+
+### 6.5 Components with `<ng-content>`
+
+Nothing special on the Angular side. `Card` simply has `<ng-content />`. The generator adds a `content`
+slot field and renders it as the element's child:
 
 ```tsx
-Card: {
-  fields: { /* …inputs… */ content: { type: "slot" } },
-  defaultProps: { /* … */ content: [] },
-  render: ({ puck, content: Content, ...props }) => (
-    <apc-card {...stripId(props)}>
-      <Content />
-    </apc-card>
-  ),
-},
+render: ({ puck: _puck, id: _id, editMode: _editMode, content: Slot, ...props }) => (
+  <apc-card {...props}><Slot /></apc-card>
+),
 ```
 
-Why it works: a Puck slot renders **one stable wrapper `<div>`**. When the element starts, Angular
-projects that single node into `<ng-content>`. From then on React only adds and removes blocks
-*inside* the wrapper, which React still owns, so there's no conflict.
+This works because a Puck slot renders **one stable wrapper `<div>`**. Angular projects that single
+node into `<ng-content>` when the element starts, and React only changes things *inside* the wrapper,
+which it still owns.
 
-Rules:
+### 6.6 Outputs and custom behaviour: `overrides.tsx`
 
-- **Exactly one stable element per `<ng-content>`.** Never render a list of React children directly
-  inside a custom element whose content Angular projects; React would later try to remove nodes that
-  Angular moved.
-- **One default `<ng-content>` per component is the tested case.** Multi-slot projection
-  (`<ng-content select="…">`) is untested. Since the slot wrapper takes a `className`, a class
-  selector (`select=".actions"` + `<Actions className="actions" />`) is the approach to try.
-- **Layout containers** (sections, stacks, grids) are easier as plain React blocks using your CSS
-  classes, with the slot itself as the flex/grid container (`<Content className="ui-grid" />`, see
-  `Grid` in `config.tsx`). Then dropped blocks are direct grid items.
-
-### 6.9 Outputs
-
-An `output()` becomes a DOM `CustomEvent` with the emitted value in `event.detail`. Listen with
-`useCustomEvent()` from `composer/src/elements.ts` inside a small React component:
+Generated blocks don't wire outputs, because mock-ups rarely need them (and Puck intercepts clicks in
+the editor anyway). When a block does need custom behaviour, override parts of the generated config in
+`composer/src/overrides.tsx`. Everything set there replaces the generated value for that block:
 
 ```tsx
-function ButtonBlock(props: Components["Button"] & { editing: boolean }) {
-  const ref = useCustomEvent("pressed", () => !props.editing && toast(`"${props.label}" pressed`));
-  return <apc-button ref={ref} label={props.label} variant={props.variant} size={props.size} />;
-}
-// …
-render: ({ puck, ...props }) => <ButtonBlock {...stripId(props)} editing={puck.isEditing} />,
+export const overrides: BlockOverrides = {
+  Button: {
+    render: ({ puck, id: _id, editMode: _editMode, ...props }) => <ButtonBlock {...props} editing={puck.isEditing} />,
+  },
+};
 ```
 
-For mock-ups, outputs rarely need to do anything. In the editor, Puck intercepts clicks anyway.
+`ButtonBlock` listens to the Angular output (a DOM `CustomEvent`) with `useCustomEvent("pressed", …)`
+from `composer/src/elements.ts`. Keep overrides rare. Anything expressible in `parameters.puck` belongs
+in the story.
 
-### 6.10 Changing components later
+### 6.7 Changing components later
 
-Saved pages contain the **block type name** (`"Quote"`) and **prop names** (`author`). Therefore:
+Saved pages contain the **block name** (`"Quote"`) and **prop names** (`author`), not HTML. The
+generator writes a schema snapshot (`composer/src/generated/puck-manifest.json`), and `puck:verify`
+compares it with the committed one (`--base`, default `HEAD`):
 
-- Adding an input: safe. Old pages don't have the prop, so React doesn't set it and the Angular input's own default applies (`defaultProps` only apply to newly dropped blocks).
-- Renaming/removing an input or block: old pages keep the old name. Migrate the JSON files, or map old
-  data in Puck's `resolveData`.
-- Changing styling or markup: safe. Pages store data, not HTML.
+| Change | Effect on saved pages | `puck:verify` |
+|---|---|---|
+| Styling / markup | none | ✓ |
+| New input | old pages don't have it → the input's own default applies | ✓ |
+| New option in a union | none | ✓ |
+| Renamed/removed input, removed option, changed type, removed slot, renamed block | old pages hold stale data | ✗ error |
+
+For an intentional breaking change: migrate the saved page JSON (or map old data in Puck's
+`resolveData`), then run `pnpm puck:verify --allow-breaking` to acknowledge it. To rename a selector
+without breaking pages, pin the old block name with `parameters.puck.type`.
 
 ---
 
-## 7. Design decisions
+## 7. The `puck:*` scripts
 
-**Puck's iframe is disabled** (`iframe={{ enabled: false }}`). Custom element definitions are per
-window, so elements registered in the page wouldn't exist inside Puck's canvas iframe. The iframe only
-buys correct mobile/tablet previews (media queries) and CSS isolation. The product is desktop-only, so
-there's a single `Desktop` viewport. To bring the iframe back, inject the elements bundle into the
-iframe document via Puck's `overrides.iframe`.
+All are plain Node ESM in `scripts/puck/` and share one analysis module, so they can't disagree about
+what's supported. Settings live in `scripts/puck/config.mjs`.
 
-**Custom element tags (`apc-*`) differ from component selectors (`ui-*`).** If they were equal, the
-`<ui-button>` that Angular renders inside `<ui-hero>` would *also* be upgraded as a custom element and
-render a second button inside itself.
+| Script | What it does | Exit code | Typical use |
+|---|---|---|---|
+| `pnpm puck:verify [Name…]` | Static checks per component/story (6.4), generated files up to date, breaking changes vs `--base` (default `HEAD`). Names are block or class names. Options: `--base <git-ref>`, `--allow-breaking` | 1 on any error | while writing a story; before committing |
+| `pnpm puck:generate` | **Always regenerates everything** (sorted, Prettier-formatted, deterministic). Refuses to write if any story has errors | 1 on errors | after adding/changing a component or story |
+| `pnpm puck:check` | Same as generate, but only compares with the committed files | 1 if stale | CI |
+| `pnpm puck:smoke` | Starts the built composer on a free port with a temp data dir, renders a page containing **every block with its defaults** in headless Chromium, checks each element rendered, every block is in the editor drawer, and there are no page errors | 1 on any failure | after `pnpm build:elements && pnpm build:composer`; catches missing providers and runtime breakage |
 
-**Readiness handshake rather than a tag list in the composer.** The bundle announces its tags
-(`window.apcElements` + `apc-elements-ready`), so adding a component never touches the loader.
+`puck:smoke` needs Chromium once: `pnpm exec playwright install chromium`, or set
+`CHROMIUM_PATH=/path/to/chrome` to use an existing binary.
 
-**`@puckeditor/core/no-external.css`.** The default `puck.css` imports the Inter webfont from
-rsms.me. This variant keeps the composer working offline.
+Example output of `pnpm puck:verify`:
+
+```
+Components
+✓ Alert          Alert → <apc-alert>
+✓ Card           Card → <apc-card>
+…
+✓ Text           TextBlock → <apc-text>
+
+  not in Puck (no 'puck' tag): dashboard.stories.ts
+
+Generated files
+✓ up to date
+
+Saved-page compatibility (vs HEAD)
+✓ no breaking changes
+
+✓ all checks passed
+```
+
+---
+
+## 8. Running the checks in CI
+
+For now everything runs manually. Once there is a pipeline, the scripts are built for it: they are
+non-interactive, deterministic and use exit codes. Recommended order, cheapest first:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm puck:check                                  # generated files committed & current (seconds)
+pnpm puck:verify --base origin/main              # rules + breaking changes vs the target branch (seconds)
+pnpm test --watch=false                          # library unit tests
+pnpm build:elements && pnpm build:composer       # also type-checks the generated code
+pnpm build:storybook
+pnpm exec playwright install --with-deps chromium
+pnpm puck:smoke                                  # runtime check of every block (~1 min)
+docker compose build                             # on main / release only
+```
+
+Notes:
+- **Don't run `puck:generate` in CI.** Generated files are committed so reviews show exactly what
+  changed for Puck; CI only proves they're current (`puck:check`). A pipeline that silently
+  regenerates would hide stale or unintended output.
+- `--base` should be the **target branch** of the merge request (fetch it first; shallow clones need
+  enough history for `git show <base>:…`). Breaking changes then fail the pipeline until someone
+  migrates saved pages and acknowledges with `--allow-breaking`. That's best done as a deliberate,
+  reviewed change (e.g. a manual CI job or a label), not a default flag.
+- `puck:smoke` is the slowest step and needs a browser. If pipeline time matters, run it on merge
+  requests that touch `projects/ui/`, `projects/elements/` or `composer/`, and always on main.
+- Fast local feedback: run `pnpm puck:verify` as a pre-commit hook (e.g. via husky/lefthook) once
+  hooks are in use.
+
+---
+
+## 9. Design decisions
+
+**Generate everything, every time, from an opt-in tag.** Partial or per-component generation leaves
+stale entries behind after deletes and renames; a full, deterministic regeneration can't drift, and
+enables `puck:check`. Opting in through a Storybook tag keeps components that aren't meant for mock-ups
+(router-bound, data-fetching) out of the drawer.
+
+**Static analysis only.** The TypeScript checker and Angular's template parser are public, stable
+APIs and resolve real types (aliases, unions, `booleanAttribute` transforms). Stories must therefore be
+static literals; that's the one constraint on how stories are written.
+
+**Unknown means error, never a guess.** Unsupported types, aliases, multi-slot projection and dynamic
+story values stop generation with a specific message instead of producing a block that half works.
+
+**Block names come from selectors, option order from the source.** Selectors change less often than
+class names, and the TypeScript checker's internal union order depends on file load order. Using the
+written order keeps the output stable, so `puck:check` doesn't flag unrelated changes.
+
+**Providers stay hand-written.** What a component injects at runtime can't be inferred reliably, so
+`projects/elements/src/main.ts` keeps them; the verifier warns, `puck:smoke` proves it.
+
+**Puck's iframe is disabled.** Custom element definitions are per window, so elements registered in the
+page wouldn't exist inside Puck's canvas iframe. The iframe only buys correct mobile/tablet previews and
+CSS isolation. The product is desktop-only, so there's a single `Desktop` viewport.
+
+**Custom element tags (`apc-*`) differ from selectors (`ui-*`).** If they were equal, the `<ui-button>`
+that Angular renders inside `<ui-hero>` would also be upgraded as a custom element and render twice.
+
+**`@puckeditor/core/no-external.css`.** The default `puck.css` imports the Inter webfont from rsms.me;
+this variant keeps the composer offline-capable.
 
 **pnpm 12 supply-chain policy stays on.** Packages younger than 24h are refused
-(`minimumReleaseAge`). That's why the Angular CLI range is `^22.2.0`, not the `^22.2.3` that `ng new`
-generated hours after that release came out.
+(`minimumReleaseAge`); widen a version range instead of disabling the policy.
 
 ---
 
-## 8. Docker & Docker Swarm
+## 10. Docker & Docker Swarm
 
 | Image | Runtime | Size | State |
 |---|---|---|---|
 | `composer` | `node:24-alpine` + `server/` (no node_modules) + built composer incl. `/elements` | ~245 MB | JSON files in `/data` |
 | `storybook` | `nginx:alpine` + static Storybook | ~115 MB | none |
 
-Both have a `HEALTHCHECK`. The composer runs as the non-root `node` user. Build context is the
-repository root.
+Both have a `HEALTHCHECK`. The composer runs as the non-root `node` user. The image build does **not**
+regenerate the Puck integration; it uses the generated files in the repo, so run `pnpm puck:generate`
+before building.
 
 ```sh
 docker compose up --build                       # local: composer :3001, storybook :6006
@@ -716,43 +745,47 @@ docker stack deploy -c stack.yml --with-registry-auth apc
 
 - `docker stack deploy` doesn't read `.env`, so export `REGISTRY`/`TAG` in the shell.
 - **Composer: 1 replica, pinned** to the labelled node. Pages are files on a node-local volume with no
-  locking. For HA, use shared storage (NFS etc.) or swap `server/store.mjs` for a database.
+  locking. For HA, use shared storage or swap `server/store.mjs` for a database.
 - **Storybook:** stateless, 2 replicas, rolling `start-first` updates.
-- **No auth built in.** Put the stack behind your reverse proxy with SSO/basic auth. Restrict
-  `/edit/*` and `PUT /api/pages/*` to devs; `/view/*` is the management link.
+- **No auth built in.** Put the stack behind your reverse proxy with SSO/basic auth. Restrict `/edit/*`
+  and `PUT /api/pages/*` to devs; `/view/*` is the management link.
 - Everything works offline at runtime: no CDNs, Storybook telemetry off, Puck without external fonts.
 
 ---
 
-## 9. Troubleshooting
+## 11. Troubleshooting
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Composer shows *Could not load /elements/main.js* | Bundle not built | `pnpm build:elements` (or run `pnpm dev`) |
-| A block is in the drawer but renders empty | Tag not registered in `projects/elements/src/main.ts`, or the bundle is stale | Register it, rebuild, reload |
-| Component renders twice inside itself | Custom element tag equals a component selector | Use a different prefix for tags |
-| Numbers/booleans arrive as strings | React rendered before the element was defined, or React < 19 | Keep the readiness handshake; use React 19 |
-| `id="Card-…"` / `editmode` attributes on elements | Puck props spread onto the element | Pass props through `stripId()` |
-| Component looks unstyled in Puck but fine in Storybook | Global CSS only in Storybook's `styles` | Add it to the elements target's `styles` too |
-| Puck's sidebars change font/buttons | Unscoped global selectors in your CSS | Scope them under a wrapper class (`.ui-canvas`) |
-| `NullInjectorError` when an element starts | Component injects a service not provided in the elements app | Add the provider to `createApplication` |
+| A component isn't in the Puck drawer | Story lacks the `puck` tag, or files not regenerated/rebuilt | `pnpm puck:verify` lists untagged stories; `pnpm puck:generate`; rebuild/reload |
+| `puck:generate` says *nothing generated* | A story/component breaks a rule | `pnpm puck:verify` shows the reason per component |
+| *meta.args must be static* | Spread, variable or function in the story's `meta` | Write the values inline |
+| *type "X" can't be edited in Puck* | Array/object/template input | `parameters.puck.exclude: ['name']` |
+| *out of date* in `puck:verify`/`puck:check` | Stories or components changed without regenerating | `pnpm puck:generate` and commit |
+| *X.y was removed or renamed* | Breaking change for saved pages | Migrate pages, then `--allow-breaking`; or keep the old name (`parameters.puck.type`) |
+| `puck:smoke`: *element is empty* + `NG0201` | Component injects something the elements app doesn't provide | Add the provider in `projects/elements/src/main.ts` |
+| `puck:smoke`: *composer/dist/elements/main.js missing* | No build | `pnpm build:elements && pnpm build:composer` |
+| `puck:smoke`: browser not found | Playwright's Chromium not installed | `pnpm exec playwright install chromium` or `CHROMIUM_PATH=…` |
+| Composer shows *Could not load /elements/main.js* | Bundle not built | `pnpm build:elements` (or `pnpm dev`) |
+| Component renders twice inside itself | Custom element tag equals a component selector | Keep `tagPrefix` ≠ `selectorPrefix` |
+| Component unstyled in Puck but fine in Storybook | Global CSS only in Storybook's `styles` | Add it to the elements target's `styles` |
+| Puck's sidebars change font/buttons | Unscoped global selectors in your CSS | Scope them under a wrapper class |
 | Component doesn't update after a field edit | Zone-dependent change detection in a zoneless build | Signal/OnPush, or add `zone.js` to the elements polyfills |
-| Children dropped into a container end up outside it / DOM errors on delete | React children rendered directly into an element with `<ng-content>` | Render exactly one `<Content />` slot inside the element |
-| `pnpm install` fails: *within the minimumReleaseAge cutoff* | A package version is under 24h old | Wait, or widen the range to allow the previous patch |
-| `pnpm install` fails: *Ignored build scripts* | pnpm ≥ 11 blocks build scripts | Add them to `allowBuilds` in `pnpm-workspace.yaml` |
-| Storybook fails to start with an error mentioning `@angular-devkit/build-angular` | Storybook's Angular builder needs it (peer dependency) | `pnpm add -D @angular-devkit/build-angular@<your major>` |
+| `pnpm install`: *within the minimumReleaseAge cutoff* | A package version is under 24h old | Wait, or widen the range to the previous patch |
+| `pnpm install`: *Ignored build scripts* | pnpm ≥ 11 blocks build scripts | Add them to `allowBuilds` in `pnpm-workspace.yaml` |
+| Storybook fails with an error mentioning `@angular-devkit/build-angular` | Storybook's Angular builder needs it | `pnpm add -D @angular-devkit/build-angular@<your major>` |
 
 ---
 
-## 10. Known limitations
+## 12. Known limitations
 
-- **Puck is 0.x** (0.23 here). Minor versions can break things, so pin it and upgrade deliberately. MIT,
-  so you could fork it.
-- **Steps ③–⑤ duplicate the component's inputs by hand.** That's fine for a dozen components; for a
-  large library, generate them.
-- **Two frameworks in the repo.** React exists only inside `composer/`, an internal tool. The product
-  stays Angular.
-- **Editor and components share one document** (no iframe), so CSS hygiene matters (section 5.5).
-- **No authentication, no versioning, no concurrent-edit protection** in the page server; last save
-  wins.
+- **Generator scope:** inputs with array/object/template types can only be excluded, not edited.
+  Multi-slot projection (`<ng-content select>`), inherited inputs, host-directive inputs and input
+  aliases aren't supported yet. All are reported, never silently mishandled.
+- **Outputs aren't wired automatically.** Use `overrides.tsx` where a mock-up needs them.
+- **Providers are hand-written** in `projects/elements/src/main.ts`; `puck:smoke` is the safety net.
+- **Puck is 0.x** (0.23 here). Minor versions can break things, so pin it and upgrade deliberately.
+  MIT, so you could fork it.
+- **Editor and components share one document** (no iframe), so CSS hygiene matters (5.5).
+- **The page server has no authentication, versioning or concurrent-edit protection**; last save wins.
 - Tested with Angular 22, Storybook 10.6, Puck 0.23, React 19, Chromium only.

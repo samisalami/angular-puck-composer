@@ -16,7 +16,7 @@ class DynamicValueError extends Error {}
 
 /**
  * @param {string} root repository root
- * @returns {{ blocks: Block[], skipped: string[], errors: string[] }}
+ * @returns {{ blocks: Block[], skipped: string[] }}
  */
 export function analyze(root) {
   const cfgPath = resolve(root, config.storiesTsconfig);
@@ -32,7 +32,6 @@ export function analyze(root) {
 
   const blocks = [];
   const skipped = [];
-  const errors = [];
 
   for (const sf of program.getSourceFiles()) {
     if (!sf.fileName.endsWith('.stories.ts') || sf.fileName.includes('/node_modules/')) continue;
@@ -46,7 +45,7 @@ export function analyze(root) {
   checkDuplicates(blocks, 'name', 'block type');
   checkDuplicates(blocks, 'tag', 'custom element tag');
   skipped.sort();
-  return { blocks, skipped, errors };
+  return { blocks, skipped };
 }
 
 /** Returns null when the story is not opted in (no `puck` tag). */
