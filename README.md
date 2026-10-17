@@ -46,7 +46,8 @@ cloud services.
 └── stack.yml                    # Docker Swarm
 ```
 
-Node `^22.22.3 || ^24.15.0` and pnpm 12 (`corepack enable` or `npm i -g pnpm@12`).
+Node `^22.22.3 || ^24.15.0` and pnpm 12 (`corepack enable` or `npm i -g pnpm@12`). Works on Linux,
+macOS and natively on Windows (no WSL needed), see [3.1](#31-windows).
 
 ```sh
 pnpm install
@@ -86,6 +87,7 @@ everything below the fold.
 | Storybook for Angular renders all components and the `Pages/Dashboard` story | ✓ |
 | **Save image** in the share view exports the full page (856 px page in a 600 px window → 2880×1712 PNG at 2×); an 8,600 px dark-theme page exports at a reduced ratio (2679×16000) instead of failing; the button itself is not in the image | ✓ |
 | Docker images build, become healthy, and pass the same browser checks | ✓ |
+| Natively on Windows 11 (PowerShell 5.1, Node 24 via fnm, Git for Windows with `autocrlf=true`, no WSL): `install`, `test`, all builds, `puck:verify`, `puck:smoke`, `dev`, `storybook`, `start` | ✓ |
 
 **Not tested:** a real multi-node `docker stack deploy` (`stack.yml` is only validated with
 `docker compose config`), and Angular versions other than 22.
@@ -148,6 +150,31 @@ everything below the fold.
 
 **Components must be standalone** (the default since Angular 19). The full rule set is in
 [6.4](#64-rules-for-components-and-stories); `pnpm puck:verify` checks it.
+
+### 3.1 Windows
+
+Everything runs natively on Windows; WSL and Docker are not needed. One-time setup in PowerShell:
+
+```powershell
+winget install Schniz.fnm      # Node version manager (like nvm); reads .node-version / .nvmrc
+winget install Git.Git
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser   # lets PowerShell run the profile and npm/pnpm shims
+Add-Content $PROFILE 'fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression'
+# open a new terminal, then:
+fnm install 24
+corepack enable                # pnpm version from package.json
+```
+
+Then clone to a normal Windows path (e.g. `C:\dev`, not a `\\wsl$` share) and follow the quick start.
+`pnpm exec playwright install chromium` works the same way for `puck:smoke`.
+
+- **Line endings:** `.gitattributes` forces LF, so Git for Windows' default `autocrlf=true` doesn't
+  make `puck:check` report the generated files as out of date. If you cloned before it existed, commit
+  or stash your work, then rewrite the checkout: `git rm -r -q --cached .; git reset --hard`
+- **Shell syntax in this README** is POSIX. In PowerShell set env vars with `$env:CHROMIUM_PATH = '…'`;
+  `a && b` needs PowerShell 7 (`winget install Microsoft.PowerShell`). In Windows PowerShell 5.1 use `a; b`.
+- **Speed:** Defender's real-time scan slows `pnpm install` and builds noticeably. A
+  [Dev Drive](https://learn.microsoft.com/windows/dev-drive/) or an exclusion for the repo folder helps.
 
 ---
 
@@ -765,6 +792,8 @@ docker stack deploy -c stack.yml --with-registry-auth apc
 | *meta.args must be static* | Spread, variable or function in the story's `meta` | Write the values inline |
 | *type "X" can't be edited in Puck* | Array/object/template input | `parameters.puck.exclude: ['name']` |
 | *out of date* in `puck:verify`/`puck:check` | Stories or components changed without regenerating | `pnpm puck:generate` and commit |
+| *out of date* on Windows right after cloning | CRLF checkout from before `.gitattributes` existed | Commit/stash, then `git rm -r -q --cached .; git reset --hard` ([3.1](#31-windows)) |
+| PowerShell: *running scripts is disabled on this system* | Default execution policy `Restricted` | `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` |
 | *X.y was removed or renamed* | Breaking change for saved pages | Migrate pages, then `--allow-breaking`; or keep the old name (`parameters.puck.type`) |
 | `puck:smoke`: *element is empty* + `NG0201` | Component injects something the elements app doesn't provide | Add the provider in `projects/elements/src/main.ts` |
 | `puck:smoke`: *composer/dist/elements/main.js missing* | No build | `pnpm build:elements && pnpm build:composer` |
@@ -794,4 +823,4 @@ docker stack deploy -c stack.yml --with-registry-auth apc
 - **Save image** rasterizes the DOM in the browser (`html-to-image`). Images from other origins only
   appear if they're served with CORS headers. Pages taller than ~8,000 px are exported at a lower pixel
   ratio, since browsers cap canvas size at ~16k px per side (`MAX_SIDE` in `composer/src/save-image.tsx`).
-- Tested with Angular 22, Storybook 10.6, Puck 0.23, React 19, Chromium only.
+- Tested with Angular 22, Storybook 10.6, Puck 0.23, React 19, Chromium only; on Linux and Windows 11.

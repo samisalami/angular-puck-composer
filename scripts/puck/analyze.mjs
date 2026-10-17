@@ -3,7 +3,7 @@
 // model of Puck blocks. Nothing is executed: no Angular, no Storybook, no browser.
 
 import { readFileSync } from 'node:fs';
-import { dirname, relative, resolve } from 'node:path';
+import { dirname, relative, resolve, sep } from 'node:path';
 import ts from 'typescript';
 import { parseTemplate, TmplAstContent } from '@angular/compiler';
 import { config } from './config.mjs';
@@ -35,7 +35,7 @@ export function analyze(root) {
 
   for (const sf of program.getSourceFiles()) {
     if (!sf.fileName.endsWith('.stories.ts') || sf.fileName.includes('/node_modules/')) continue;
-    const storyFile = relative(root, sf.fileName);
+    const storyFile = repoPath(root, sf.fileName);
     const block = analyzeStory(sf, storyFile, checker, libraryExports, root);
     if (block === null) skipped.push(storyFile);
     else blocks.push(block);
@@ -92,7 +92,7 @@ function analyzeStory(sf, storyFile, checker, libraryExports, root) {
     return block;
   }
   block.component = classDecl.name?.text ?? '';
-  block.componentFile = relative(root, classDecl.getSourceFile().fileName);
+  block.componentFile = repoPath(root, classDecl.getSourceFile().fileName);
   block.exportName = libraryExports.get(classDecl) ?? '';
   if (!block.exportName) error(`${block.component} is not exported from ${config.libraryEntry}`);
 
@@ -599,6 +599,8 @@ function checkDuplicates(blocks, key, what) {
 const pascalCase = (s) => s.split('-').filter(Boolean).map((p) => p[0].toUpperCase() + p.slice(1)).join('');
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+// Repo-relative path with `/` on every OS: it ends up in generated files, which must be identical on Windows.
+const repoPath = (root, file) => relative(root, file).split(sep).join('/');
 
 /**
  * @typedef {{ name: string, kind: 'string'|'number'|'boolean'|'enum', tsType: string, options?: (string|number)[],

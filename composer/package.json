@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --port 3001",
     "build": "tsc -p tsconfig.json && vite build",
-    "start": "STATIC_DIR=dist DATA_DIR=data apc-page-server",
+    "start": "apc-page-server",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

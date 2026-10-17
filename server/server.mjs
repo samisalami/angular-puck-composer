@@ -3,7 +3,7 @@
 import { createServer } from "node:http";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
-import { extname, join, normalize, resolve } from "node:path";
+import { extname, join, normalize, resolve, sep } from "node:path";
 import { createStore, handleApi } from "./store.mjs";
 
 const PORT = Number(process.env.PORT ?? 3000);
@@ -33,7 +33,7 @@ async function serveStatic(req, res) {
   // SPA fallback: unknown paths get index.html so client-side routes like /view/foo work.
   if (!info || info.isDirectory()) file = join(STATIC_DIR, "index.html");
 
-  const hashed = file.includes(`${STATIC_DIR}/assets/`);
+  const hashed = file.startsWith(join(STATIC_DIR, "assets") + sep);
   res.writeHead(200, {
     "content-type": TYPES[extname(file)] ?? "application/octet-stream",
     "cache-control": hashed ? "public, max-age=31536000, immutable" : "no-cache",
