@@ -58,9 +58,12 @@ You need:
 ```sh
 npm install
 npm run build:elements  # once, so the composer has a bundle to load
-npm run dev             # elements watch-build + composer  → http://localhost:3001
-npm run storybook       # Storybook for Angular           → http://localhost:6006
+npm run dev             # composer → http://localhost:3001, Storybook → http://localhost:6006
 ```
+
+`npm run dev` runs three things in one terminal: the elements watch-build, the composer (Vite) and
+Storybook. Storybook takes a few seconds longer than the composer to come up. `npm run storybook` starts
+Storybook alone. Ctrl+C stops everything.
 
 The commands are the same in PowerShell, cmd, bash and zsh.
 
@@ -70,7 +73,7 @@ everything below the fold.
 
 | Script | Does |
 |---|---|
-| `npm run dev` | `ng build elements --watch` + Vite dev server for the composer (port 3001) |
+| `npm run dev` | All `dev:*` scripts in parallel: `ng build elements --watch`, Vite dev server for the composer (port 3001), Storybook (port 6006) |
 | `npm run storybook` / `npm run build:storybook` | Storybook for Angular (port 6006 / `dist/storybook`) |
 | `npm run puck:verify -- [Name…]` | Checks that components + stories can be used in Puck ([section 7](#7-the-puck-scripts)) |
 | `npm run puck:generate` | Regenerates the Puck integration from the stories |
@@ -213,14 +216,13 @@ Or manually (what this repo does):
 
 ```sh
 npm i -D storybook@^10 @storybook/angular@^10 @storybook/addon-docs@^10 \
-          @angular-devkit/build-angular@^21 @angular/platform-browser-dynamic@^21 @types/node
+          @angular-devkit/build-angular@^21 @types/node
 ```
 
 > With npm 10 (Node 22.15), also commit an `.npmrc` with `legacy-peer-deps=true`. Without it,
 > `npm install` crashes on Vitest's optional peer dependencies (*Cannot read properties of null (reading
 > 'edgesOut')*, an npm 10 bug fixed in npm 11). With it, npm doesn't install peer dependencies on its own,
-> so list the ones the tools need in `package.json`, as above (`@angular/platform-browser-dynamic`
-> for Storybook, `vite` next to `vitest`).
+> so list the ones the tools need in `package.json` (here: `vite` next to `vitest`).
 
 ### 4.2 `angular.json` targets
 
@@ -452,7 +454,8 @@ Root scripts:
 "build:composer": "npm run build -w @apc/composer",
 "dev": "node scripts/dev.mjs",
 "dev:elements": "ng build elements --watch --configuration development",
-"dev:composer": "npm run dev -w @apc/composer"
+"dev:composer": "npm run dev -w @apc/composer",
+"dev:storybook": "ng run ui:storybook --ci"
 ```
 
 ### 5.4 D. Page server
@@ -760,7 +763,18 @@ this variant keeps the composer offline-capable.
 **npm, no extra tools.** Everything runs with the npm bundled with Node 22.15. `npm run dev` starts
 the `dev:*` scripts in parallel through `scripts/dev.mjs` (no `concurrently` dependency), and stops all of
 them, including on Windows, when one exits or on Ctrl+C. `.npmrc` sets `legacy-peer-deps` because of an
-npm 10 bug (see 4.1), so required peers are listed explicitly in `package.json`.
+npm 10 bug (see 4.1), so required peers are listed explicitly in `package.json`. Angular CLI analytics
+are off in `angular.json`, so no `ng` command stops at a prompt.
+
+**`npm audit`: what's left and why.** `overrides` in `package.json` lift `uuid` (in `sockjs`) to 11.1.1
+and `webpack-dev-middleware` (in Storybook's webpack builder) to 7.4.5, the patched versions. The
+remaining 6 *high* findings are one advisory, `braces` ≤ 3.0.3 (a DoS on deeply nested glob patterns),
+reached through `chokidar`/`micromatch` in `webpack-dev-server`, which `@angular-devkit/build-angular`
+pulls in. There is no patched `braces` release yet, so no override and no Node version fixes it; it
+also only affects dev servers that read glob patterns from the project's own config, not the built
+composer or the Storybook image. **Don't run `npm audit fix --force`**: it "fixes" this by downgrading
+`@angular-devkit/build-angular` to 16 and `@storybook/angular` to 6. Once `braces` ships a fix, add it to
+`overrides`. The *deprecated* warning for `deep-diff` comes from Puck itself and is harmless.
 
 ---
 
@@ -833,7 +847,7 @@ docker stack deploy -c stack.yml --with-registry-auth apc
 | *out of date* in `puck:verify`/`puck:check` | Stories or components changed without regenerating | `npm run puck:generate` and commit |
 | *out of date* on Windows right after cloning | CRLF checkout from before `.gitattributes` existed | Commit/stash, then `git rm -r -q --cached .; git reset --hard` ([3.1](#31-windows)) |
 | `npm install`: *Cannot read properties of null (reading 'edgesOut')* | npm 10 bug with Vitest's optional peers | Keep `.npmrc` (`legacy-peer-deps=true`) |
-| Error about a missing peer, e.g. `@angular/platform-browser-dynamic` | `legacy-peer-deps`: npm doesn't install peers on its own | Add the package to `devDependencies`, same major as Angular |
+| Error about a missing peer package | `legacy-peer-deps`: npm doesn't install peers on its own | Add the package to `devDependencies`, same major as Angular |
 | *Node.js version v22.15.0 detected. The Angular CLI requires a minimum Node.js version of …* | Angular/tooling was upgraded past what Node 22.15 supports (Angular 22, jsdom 30, Vitest 5) | Stay on Angular 21 / jsdom 29 / Vitest 4 until the runtime moves to Node ≥ 22.22 |
 | Windows: `node_modules` can't be deleted (*part of the path could not be found*) | Path longer than 260 characters (Storybook cache) | Let Node delete it: `node -e "require('fs').rmSync('node_modules',{recursive:true,force:true})"`; clone to a shorter path |
 | PowerShell: *running scripts is disabled on this system* | Default execution policy `Restricted` | `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` |
@@ -841,6 +855,8 @@ docker stack deploy -c stack.yml --with-registry-auth apc
 | `puck:smoke`: *element is empty* + `NG0201` | Component injects something the elements app doesn't provide | Add the provider in `projects/elements/src/main.ts` |
 | `puck:smoke`: *composer/dist/elements/main.js missing* | No build | `npm run build:elements && npm run build:composer` |
 | `puck:smoke`: browser not found | Playwright's Chromium not installed | `npx playwright install chromium` or `CHROMIUM_PATH=…` |
+| `npm audit` reports 6 high (`braces`) | No patched release upstream yet | Nothing to do now; don't `npm audit fix --force` (section 9) |
+| `ng` stops at *Would you like to share pseudonymous usage data…* | Analytics prompt (older checkout) | Pull; `angular.json` sets `"analytics": false`. Or answer `N` once |
 | Composer shows *Could not load /elements/main.js* | Bundle not built | `npm run build:elements` (or `npm run dev`) |
 | Component renders twice inside itself | Custom element tag equals a component selector | Keep `tagPrefix` ≠ `selectorPrefix` |
 | Component unstyled in Puck but fine in Storybook | Global CSS only in Storybook's `styles` | Add it to the elements target's `styles` |
