@@ -1,7 +1,9 @@
-# Local build & run:   docker compose up --build
-# Build/push images for the swarm stack (see stack.yml):
+# Optional. Day-to-day development runs locally without Docker (see README, section 1).
+# Builds the images for the hosted swarm stack (stack.yml), normally in CI:
 #   REGISTRY=registry.example.com/apc TAG=1 docker compose build
 #   REGISTRY=registry.example.com/apc TAG=1 docker compose push
+# Only Storybook:  docker compose build storybook
+# Try the images on a machine with Docker:  docker compose up --build
 
 services:
   composer:

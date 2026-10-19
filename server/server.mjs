@@ -27,7 +27,8 @@ const TYPES = {
 async function serveStatic(req, res) {
   const path = normalize(decodeURIComponent(new URL(req.url, "http://x").pathname));
   let file = join(STATIC_DIR, path);
-  if (!file.startsWith(STATIC_DIR)) return res.writeHead(403).end();
+  // `+ sep`: a sibling like `dist-old/` must not pass as being inside `dist/` (also with `\` on Windows).
+  if (!file.startsWith(STATIC_DIR + sep)) return res.writeHead(403).end();
 
   const info = await stat(file).catch(() => null);
   // SPA fallback: unknown paths get index.html so client-side routes like /view/foo work.

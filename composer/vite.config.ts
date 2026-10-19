@@ -1,6 +1,6 @@
 import { cp, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
-import { extname, join, resolve } from "node:path";
+import { extname, join, resolve, sep } from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 // @ts-expect-error plain JS module without types
@@ -24,7 +24,7 @@ function angularElements(): Plugin {
     configureServer(server) {
       server.middlewares.use("/elements", async (req, res, next) => {
         const file = join(ELEMENTS_DIR, decodeURIComponent((req.url ?? "/").split("?")[0]));
-        if (!file.startsWith(ELEMENTS_DIR) || !(await stat(file).catch(() => null))?.isFile()) return next();
+        if (!file.startsWith(ELEMENTS_DIR + sep) || !(await stat(file).catch(() => null))?.isFile()) return next();
         res.setHeader("content-type", extname(file) === ".css" ? "text/css" : "text/javascript");
         res.setHeader("cache-control", "no-cache");
         createReadStream(file).pipe(res);

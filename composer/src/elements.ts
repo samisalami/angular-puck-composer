@@ -27,7 +27,7 @@ export async function loadAngularElements(base = "/elements"): Promise<string[]>
   js.type = "module";
   js.src = `${base}/main.js`;
   const failed = new Promise<never>((_, reject) => {
-    js.onerror = () => reject(new Error(`Could not load ${js.src} - did you run "pnpm build:elements"?`));
+    js.onerror = () => reject(new Error(`Could not load ${js.src} - did you run "npm run build:elements"?`));
   });
   document.head.append(js);
   return Promise.race([ready, failed]);

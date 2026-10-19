@@ -1,7 +1,7 @@
 import { provideBrowserGlobalErrorListeners } from '@angular/core';
 import { createApplication } from '@angular/platform-browser';
 import { createCustomElement } from '@angular/elements';
-// Tag → component map, generated from the stories tagged 'puck' (pnpm puck:generate).
+// Tag → component map, generated from the stories tagged 'puck' (npm run puck:generate).
 import { elements } from './elements.generated';
 
 /**
@@ -13,10 +13,10 @@ import { elements } from './elements.generated';
  * upgraded as a custom element too and render a second Button inside itself.
  */
 
-// Angular 22 is zoneless by default: input changes made through the element's properties
+// Angular 21+ is zoneless by default: input changes made through the element's properties
 // are signal writes, which schedule change detection on their own.
 // Hand-written on purpose: services the components inject can't be inferred by the generator.
-// Add them here (e.g. provideHttpClient(), translation providers); `pnpm puck:smoke` catches gaps.
+// Add them here (e.g. provideHttpClient(), translation providers); `npm run puck:smoke` catches gaps.
 const app = await createApplication({ providers: [provideBrowserGlobalErrorListeners()] });
 
 for (const [tag, component] of Object.entries(elements)) {

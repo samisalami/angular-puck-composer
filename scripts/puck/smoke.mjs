@@ -2,8 +2,8 @@
 // Runtime smoke test for the generated blocks: catches what static analysis can't (missing
 // providers → NullInjectorError, components that break as custom elements, broken styles).
 //
-// Needs a built composer:  pnpm build:elements && pnpm build:composer
-// Needs Chromium once:     pnpm exec playwright install chromium
+// Needs a built composer:  npm run build:elements && npm run build:composer
+// Needs Chromium once:     npx playwright install chromium
 //                          (or point CHROMIUM_PATH at an existing Chromium/Chrome binary)
 //
 //   node scripts/puck/smoke.mjs
@@ -24,7 +24,7 @@ import { ROOT } from './shared.mjs';
 
 const DIST = resolve(ROOT, 'composer/dist');
 if (!(await stat(join(DIST, 'elements/main.js')).catch(() => null))) {
-  console.error('✗ composer/dist/elements/main.js missing - run: pnpm build:elements && pnpm build:composer');
+  console.error('✗ composer/dist/elements/main.js missing - run: npm run build:elements && npm run build:composer');
   process.exit(1);
 }
 

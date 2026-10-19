@@ -61,7 +61,7 @@ for (const [path, content] of Object.entries(files)) {
 }
 if (stale.length) {
   errors++;
-  console.log(`✗ out of date: ${stale.join(', ')}\n    run: pnpm puck:generate`);
+  console.log(`✗ out of date: ${stale.join(', ')}\n    run: npm run puck:generate`);
 } else console.log('✓ up to date');
 
 // 3. Breaking changes for saved pages ----------------------------------------------------------------

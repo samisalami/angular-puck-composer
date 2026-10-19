@@ -1,10 +1,11 @@
 # Build context: repository root  (docker build -f docker/storybook.Dockerfile .)
-FROM node:24-alpine AS build
+# Node version = .node-version (override in CI: --build-arg NODE_VERSION=22.x.y).
+ARG NODE_VERSION=22.15.0
+FROM node:${NODE_VERSION}-alpine AS build
 ENV NG_CLI_ANALYTICS=false CI=true
-RUN npm i -g pnpm@12.11.2
 WORKDIR /repo
 COPY . .
-RUN pnpm install --frozen-lockfile && pnpm build:storybook
+RUN npm ci && npm run build:storybook
 
 # Static files only.
 FROM nginx:1.29-alpine

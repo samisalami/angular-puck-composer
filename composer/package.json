@@ -10,18 +10,18 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@apc/page-server": "workspace:*",
+    "@apc/page-server": "*",
     "@puckeditor/core": "^0.23.0",
     "html-to-image": "^1.11.13",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
-    "@types/node": "^24.19.2",
+    "@types/node": "^22.15.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.2.0",
-    "typescript": "~6.0.2",
+    "typescript": "~5.9.3",
     "vite": "^7.3.7"
   }
 }

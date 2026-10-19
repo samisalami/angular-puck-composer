@@ -16,7 +16,7 @@ const { blocks } = analyze(ROOT);
 
 const errorCount = printDiagnostics(blocks, { quiet: true });
 if (errorCount > 0) {
-  console.error(`\n✗ ${errorCount} error(s) - nothing generated. Details: pnpm puck:verify`);
+  console.error(`\n✗ ${errorCount} error(s) - nothing generated. Details: npm run puck:verify`);
   process.exit(1);
 }
 
@@ -35,7 +35,7 @@ for (const [path, content] of Object.entries(files)) {
 
 if (check) {
   if (stale.length) {
-    console.error(`✗ generated files are out of date:\n${stale.map((p) => `  - ${p}`).join('\n')}\n  run: pnpm puck:generate`);
+    console.error(`✗ generated files are out of date:\n${stale.map((p) => `  - ${p}`).join('\n')}\n  run: npm run puck:generate`);
     process.exit(1);
   }
   console.log(`✓ generated files are up to date (${blocks.length} blocks)`);
